@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from pathlib import Path
 
 from openpyxl import load_workbook
@@ -12,6 +13,7 @@ from db_teigisho.render import build_artifacts, render_html, render_pdf, render_
 
 def test_renders_self_contained_html(definition_file: Path, tmp_path: Path) -> None:
     document = load_definition(definition_file)
+    document.tables[0].description = "顧客の基本情報を管理する。"
     output = tmp_path / "definition.html"
 
     render_html(document, output)
@@ -22,6 +24,10 @@ def test_renders_self_contained_html(definition_file: Path, tmp_path: Path) -> N
     assert "orders" in html
     assert "customer_order_totals" in html
     assert "<style>" in html
+    assert '<section id="table-list">' in html
+    assert "テーブル一覧（2）" in html
+    assert "カラム数" in html
+    assert "顧客の基本情報を管理する。" in html
 
 
 def test_renders_formatted_xlsx(definition_file: Path, tmp_path: Path) -> None:
@@ -33,12 +39,19 @@ def test_renders_formatted_xlsx(definition_file: Path, tmp_path: Path) -> None:
     workbook = load_workbook(output, read_only=False, data_only=True)
     assert workbook.sheetnames == [
         "文書情報",
+        "テーブル一覧",
         "customers",
         "orders",
         "ビュー",
         "ストアドプロシージャ",
     ]
     assert workbook["文書情報"]["B2"].value == "PJ-001"
+    assert workbook["テーブル一覧"]["B4"].value == "customers"
+    assert workbook["テーブル一覧"]["C5"].value == "受注"
+    assert workbook["テーブル一覧"]["E4"].value == 2
+    assert workbook["テーブル一覧"]["F5"].value == 1
+    assert workbook["テーブル一覧"]["G4"].value == 0
+    assert workbook["テーブル一覧"].freeze_panes == "A4"
     assert workbook["orders"].freeze_panes == "A5"
     assert workbook["orders"]["B5"].value == "order_id"
     assert workbook["orders"].sheet_view.showGridLines is False
@@ -73,6 +86,7 @@ def test_renders_a_valid_pdf(definition_file: Path, tmp_path: Path) -> None:
     assert len(content) > 3_000
     assert b"/FontFile2" in content
     assert b"Adobe-Japan1" not in content
+    assert len(re.findall(rb"/Type\s*/Page\b", content)) == 6
 
 
 def test_builds_all_ci_artifacts_with_sha256_manifest(

@@ -158,6 +158,53 @@ def _safe_sheet_title(raw: str, existing: set[str]) -> str:
     return candidate
 
 
+def _table_list_sheet(workbook: Workbook, definition: DatabaseDefinition) -> None:
+    sheet = workbook.create_sheet("テーブル一覧")
+    sheet.sheet_view.showGridLines = False
+    headers = [
+        "No.",
+        "テーブル物理名",
+        "テーブル論理名",
+        "説明",
+        "カラム数",
+        "インデックス数",
+        "外部キー数",
+    ]
+    _style_title(sheet, f"テーブル一覧 ({len(definition.tables)})", len(headers))
+    for column, header in enumerate(headers, start=1):
+        sheet.cell(3, column, header)
+    _style_header(sheet, 3, len(headers))
+    for row, table in enumerate(definition.tables, start=4):
+        values: list[object] = [
+            row - 3,
+            table.physical_name,
+            table.logical_name,
+            table.description or "",
+            len(table.columns),
+            len(table.indexes),
+            len(table.foreign_keys),
+        ]
+        for number, value in enumerate(values, start=1):
+            cell = sheet.cell(row, number, _excel_value(value))
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+            cell.border = _CELL_BORDER
+        if row % 2 == 1:
+            for cell in sheet[row][: len(headers)]:
+                cell.fill = PatternFill("solid", fgColor="F6F8FA")
+
+    widths = [8, 28, 28, 54, 14, 16, 14]
+    for column, width in enumerate(widths, start=1):
+        sheet.column_dimensions[get_column_letter(column)].width = width
+    sheet.freeze_panes = "A4"
+    sheet.auto_filter.ref = f"A3:G{max(3, 3 + len(definition.tables))}"
+    sheet.page_setup.orientation = "landscape"
+    sheet.page_setup.fitToWidth = 1
+    sheet.page_setup.fitToHeight = 0
+    sheet.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    sheet.print_title_rows = "1:3"
+    sheet.print_area = sheet.dimensions
+
+
 def _table_sheet(workbook: Workbook, table: TableDefinition, title: str) -> None:
     sheet = workbook.create_sheet(title)
     sheet.sheet_view.showGridLines = False
@@ -285,7 +332,8 @@ def render_xlsx(definition: DatabaseDefinition, output: Path) -> None:
     _ensure_parent(output)
     workbook = Workbook()
     _document_sheet(workbook, definition)
-    existing = {"文書情報".casefold()}
+    _table_list_sheet(workbook, definition)
+    existing = {"文書情報".casefold(), "テーブル一覧".casefold()}
     for table in definition.tables:
         _table_sheet(workbook, table, _safe_sheet_title(table.physical_name, existing))
     _sql_sheet(workbook, "ビュー", definition.views)
@@ -455,6 +503,46 @@ def render_pdf(definition: DatabaseDefinition, output: Path) -> None:
             [48 * mm, 120 * mm],
         ),
     ]
+
+    story.extend(
+        [
+            PageBreak(),
+            Paragraph(f"テーブル一覧（{len(definition.tables)}）", styles["h1"]),
+        ]
+    )
+    if definition.tables:
+        table_list_rows: list[list[object]] = [
+            [
+                "No.",
+                "テーブル物理名",
+                "テーブル論理名",
+                "説明",
+                "カラム数",
+                "インデックス数",
+                "外部キー数",
+            ]
+        ]
+        for number, table in enumerate(definition.tables, start=1):
+            table_list_rows.append(
+                [
+                    number,
+                    table.physical_name,
+                    table.logical_name,
+                    table.description or "",
+                    len(table.columns),
+                    len(table.indexes),
+                    len(table.foreign_keys),
+                ]
+            )
+        story.append(
+            _pdf_table(
+                table_list_rows,
+                styles,
+                [10 * mm, 38 * mm, 35 * mm, 94 * mm, 18 * mm, 22 * mm, 20 * mm],
+            )
+        )
+    else:
+        story.append(Paragraph("テーブル定義なし", styles["body"]))
 
     for table in definition.tables:
         story.extend(

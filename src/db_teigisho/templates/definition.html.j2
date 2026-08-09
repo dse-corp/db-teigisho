@@ -41,6 +41,8 @@
     .meta dt { color: var(--muted); background: var(--surface); font-weight: 650; }
     .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
     table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+    .summary-table { white-space: normal; }
+    .summary-table code { white-space: nowrap; }
     th, td { padding: 8px 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
     th { color: #fff; background: var(--brand); font-size: 12px; }
     tbody tr:nth-child(even) { background: var(--surface); }
@@ -73,6 +75,7 @@
       <strong>目次</strong>
       <ul>
         <li><a href="#document">文書・DBMS情報</a></li>
+        <li><a href="#table-list">テーブル一覧</a></li>
         {% for table in definition.tables %}<li><a href="#table-{{ loop.index }}">{{ table.logical_name }} ({{ table.physical_name }})</a></li>{% endfor %}
         {% if definition.views %}<li><a href="#views">ビュー</a></li>{% endif %}
         {% if definition.stored_procedures %}<li><a href="#procedures">ストアドプロシージャ</a></li>{% endif %}
@@ -95,6 +98,30 @@
         <div><dt>Collation</dt><dd>{{ definition.database.collation or "—" }}</dd></div>
         <div><dt>フォーマット</dt><dd>{{ definition.format_version }}</dd></div>
       </dl>
+    </section>
+
+    <section id="table-list">
+      <h2>テーブル一覧（{{ definition.tables|length }}）</h2>
+      {% if definition.tables %}
+      <div class="table-wrap">
+        <table class="summary-table">
+          <thead><tr><th>No.</th><th>テーブル物理名</th><th>テーブル論理名</th><th>説明</th><th>カラム数</th><th>インデックス数</th><th>外部キー数</th></tr></thead>
+          <tbody>
+            {% for table in definition.tables %}
+            <tr>
+              <td>{{ loop.index }}</td>
+              <td><a href="#table-{{ loop.index }}"><code>{{ table.physical_name }}</code></a></td>
+              <td>{{ table.logical_name }}</td>
+              <td>{{ table.description or "" }}</td>
+              <td>{{ table.columns|length }}</td>
+              <td>{{ table.indexes|length }}</td>
+              <td>{{ table.foreign_keys|length }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}<p class="empty">テーブル定義なし</p>{% endif %}
     </section>
 
     <section>
@@ -152,4 +179,3 @@
   </main>
 </body>
 </html>
-

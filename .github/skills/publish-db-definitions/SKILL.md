@@ -25,7 +25,8 @@ Treat YAML as the source of truth and generate every requested artifact from the
 
    Use `dbdef render --format html|xlsx|pdf --output <file>` only when one format was explicitly requested.
 4. Read `manifest.json` and verify that every listed file exists. Do not claim outputs are current if YAML changed after the build.
-5. Report the source path, output directory, generated formats, and manifest path.
+5. Confirm that HTML contains the table-list section, XLSX contains the `テーブル一覧` sheet, and PDF contains the table-list page.
+6. Report the source path, output directory, generated formats, and manifest path.
 
 ## Constraints
 

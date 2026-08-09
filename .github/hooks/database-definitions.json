@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "hooks": {
+    "postToolUse": [
+      {
+        "type": "command",
+        "matcher": "create|edit",
+        "bash": "python3 .github/hooks/validate_database_definitions.py",
+        "powershell": "py -3 .github/hooks/validate_database_definitions.py",
+        "cwd": ".",
+        "env": {
+          "DBDEF_HOOK_EVENT": "postToolUse"
+        },
+        "timeoutSec": 30
+      }
+    ],
+    "agentStop": [
+      {
+        "type": "command",
+        "bash": "python3 .github/hooks/validate_database_definitions.py",
+        "powershell": "py -3 .github/hooks/validate_database_definitions.py",
+        "cwd": ".",
+        "env": {
+          "DBDEF_HOOK_EVENT": "agentStop"
+        },
+        "timeoutSec": 30
+      }
+    ]
+  }
+}

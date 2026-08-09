@@ -1,0 +1,54 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "db-teigisho"
+version = "0.1.0"
+description = "YAML-first database definition validation and publishing"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+  "Jinja2>=3.1,<4",
+  "openpyxl>=3.1,<4",
+  "pydantic>=2.11,<3",
+  "PyYAML>=6.0,<7",
+  "reportlab>=4.4,<5",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.15,<2",
+  "pytest>=8.3,<9",
+  "pytest-cov>=6.1,<7",
+  "ruff>=0.11,<1",
+  "types-openpyxl>=3.1,<4",
+  "types-PyYAML>=6.0,<7",
+  "types-reportlab>=4.4,<5",
+]
+
+[project.scripts]
+dbdef = "db_teigisho.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/db_teigisho"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/db_teigisho", "README.md", "schemas", "examples"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "--cov=db_teigisho --cov-report=term-missing --cov-fail-under=80"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+packages = ["db_teigisho"]

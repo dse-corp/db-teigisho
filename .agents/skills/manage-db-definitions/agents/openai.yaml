@@ -1,0 +1,4 @@
+interface:
+  display_name: "DB Definition Manager"
+  short_description: "Validate and publish YAML database definitions"
+  default_prompt: "Use $manage-db-definitions to create or update a validated YAML database definition."

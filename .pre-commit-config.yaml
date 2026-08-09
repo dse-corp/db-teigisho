@@ -1,0 +1,12 @@
+repos:
+  - repo: local
+    hooks:
+      - id: validate-database-definitions
+        name: Validate database definitions
+        entry: dbdef validate
+        language: python
+        additional_dependencies:
+          - "."
+        files: ^(definitions|examples)/.*\.ya?ml$
+        types: [yaml]
+

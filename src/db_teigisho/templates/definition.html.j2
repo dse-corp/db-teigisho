@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ definition.document.system_name }} データベース定義書</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #17202a;
+      --muted: #5d6d7e;
+      --line: #d5dce3;
+      --surface: #f5f7fa;
+      --brand: #124e78;
+      --accent: #e8f2f8;
+      --yes: #0d6b4c;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans JP", sans-serif;
+      background: #fff;
+    }
+    header {
+      color: #fff;
+      background: linear-gradient(135deg, #0c3857, var(--brand));
+      padding: 40px max(24px, calc((100vw - 1280px) / 2));
+    }
+    header h1 { margin: 0 0 6px; font-size: 30px; }
+    header p { margin: 0; color: #d9edf7; }
+    main { max-width: 1280px; margin: 0 auto; padding: 28px 24px 64px; }
+    nav { padding: 18px 20px; border: 1px solid var(--line); background: var(--surface); }
+    nav ul { columns: 3 220px; margin: 8px 0 0; padding-left: 22px; }
+    a { color: var(--brand); }
+    h2 { margin: 42px 0 14px; padding-bottom: 8px; border-bottom: 3px solid var(--brand); }
+    h3 { margin: 28px 0 8px; color: var(--brand); }
+    .meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0; border: 1px solid var(--line); }
+    .meta div { display: grid; grid-template-columns: 140px 1fr; min-height: 40px; border-bottom: 1px solid var(--line); }
+    .meta dt, .meta dd { margin: 0; padding: 9px 12px; }
+    .meta dt { color: var(--muted); background: var(--surface); font-weight: 650; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--line); }
+    table { width: 100%; border-collapse: collapse; white-space: nowrap; }
+    th, td { padding: 8px 10px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: #fff; background: var(--brand); font-size: 12px; }
+    tbody tr:nth-child(even) { background: var(--surface); }
+    .flag { color: var(--yes); font-weight: 800; text-align: center; }
+    .empty { color: var(--muted); font-style: italic; }
+    .object { scroll-margin-top: 12px; }
+    .object-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 10px; }
+    .physical { color: var(--muted); font: 0.9em ui-monospace, SFMono-Regular, Menlo, monospace; }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    pre { overflow-x: auto; margin: 8px 0 24px; padding: 16px; color: #e9f2f8; background: #15232d; border-radius: 4px; white-space: pre-wrap; }
+    .subsection { margin-top: 18px; }
+    footer { margin-top: 56px; color: var(--muted); font-size: 12px; }
+    @media print {
+      header { background: #fff; color: #000; padding: 0 0 18px; }
+      header p { color: #444; }
+      main { max-width: none; padding: 0; }
+      nav { display: none; }
+      .object { break-before: page; }
+      pre { color: #000; background: #f3f3f3; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>{{ definition.document.system_name }} データベース定義書</h1>
+    <p>{{ definition.database.dbms_name }} {{ definition.database.dbms_version }} / {{ definition.database.database_name }}.{{ definition.database.schema_name }}</p>
+  </header>
+  <main>
+    <nav aria-label="目次">
+      <strong>目次</strong>
+      <ul>
+        <li><a href="#document">文書・DBMS情報</a></li>
+        {% for table in definition.tables %}<li><a href="#table-{{ loop.index }}">{{ table.logical_name }} ({{ table.physical_name }})</a></li>{% endfor %}
+        {% if definition.views %}<li><a href="#views">ビュー</a></li>{% endif %}
+        {% if definition.stored_procedures %}<li><a href="#procedures">ストアドプロシージャ</a></li>{% endif %}
+      </ul>
+    </nav>
+
+    <section id="document">
+      <h2>文書・DBMS情報</h2>
+      <dl class="meta">
+        <div><dt>プロジェクト番号</dt><dd>{{ definition.document.project_number }}</dd></div>
+        <div><dt>システム名</dt><dd>{{ definition.document.system_name }}</dd></div>
+        <div><dt>サブシステム名</dt><dd>{{ definition.document.subsystem_name or "—" }}</dd></div>
+        <div><dt>作成日時</dt><dd>{{ definition.document.created_at.isoformat() }}</dd></div>
+        <div><dt>変更日時</dt><dd>{{ definition.document.updated_at.isoformat() }}</dd></div>
+        <div><dt>DBMS</dt><dd>{{ definition.database.dbms_name }} {{ definition.database.dbms_version }}</dd></div>
+        <div><dt>サーバー</dt><dd>{{ definition.database.server_name or "—" }}</dd></div>
+        <div><dt>ポート</dt><dd>{{ definition.database.port or "—" }}</dd></div>
+        <div><dt>データベース</dt><dd>{{ definition.database.database_name }}</dd></div>
+        <div><dt>スキーマ</dt><dd>{{ definition.database.schema_name }}</dd></div>
+        <div><dt>Collation</dt><dd>{{ definition.database.collation or "—" }}</dd></div>
+        <div><dt>フォーマット</dt><dd>{{ definition.format_version }}</dd></div>
+      </dl>
+    </section>
+
+    <section>
+      <h2>テーブル（{{ definition.tables|length }}）</h2>
+      {% for table in definition.tables %}
+      <article id="table-{{ loop.index }}" class="object">
+        <div class="object-title"><h3>{{ table.logical_name }}</h3><span class="physical">{{ table.physical_name }}</span></div>
+        {% if table.description %}<p>{{ table.description }}</p>{% endif %}
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>No.</th><th>物理名</th><th>論理名</th><th>型</th><th>長さ</th><th>Scale</th><th>Default</th><th>NN</th><th>Unique</th><th>PK</th><th>説明</th></tr></thead>
+            <tbody>
+              {% for column in table.columns %}
+              <tr>
+                <td>{{ loop.index }}</td><td><code>{{ column.physical_name }}</code></td><td>{{ column.logical_name }}</td><td><code>{{ column.data_type }}</code></td>
+                <td>{{ column.length if column.length is not none else "" }}</td><td>{{ column.scale if column.scale is not none else "" }}</td>
+                <td><code>{{ column.default if column.default is not none else "" }}</code></td>
+                <td class="flag">{{ "✓" if column.not_null else "" }}</td><td class="flag">{{ "✓" if column.unique else "" }}</td><td class="flag">{{ "✓" if column.primary_key else "" }}</td><td>{{ column.description or "" }}</td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        <div class="subsection">
+          <strong>インデックス</strong>
+          {% if table.indexes %}
+          <div class="table-wrap"><table><thead><tr><th>名前</th><th>種別</th><th>Unique</th><th>キー列</th><th>付加列</th><th>条件</th></tr></thead><tbody>
+            {% for index in table.indexes %}<tr><td><code>{{ index.name }}</code></td><td>{{ index.type or "" }}</td><td class="flag">{{ "✓" if index.unique else "" }}</td><td>{% for item in index.columns %}<code>{{ item.name }} {{ item.order }}</code>{{ ", " if not loop.last else "" }}{% endfor %}</td><td>{{ index.include_columns|join(", ") }}</td><td><code>{{ index.where or "" }}</code></td></tr>{% endfor %}
+          </tbody></table></div>
+          {% else %}<p class="empty">定義なし</p>{% endif %}
+        </div>
+        <div class="subsection">
+          <strong>外部キー</strong>
+          {% if table.foreign_keys %}
+          <div class="table-wrap"><table><thead><tr><th>名前</th><th>参照元</th><th>参照先</th><th>ON UPDATE</th><th>ON DELETE</th><th>Deferrable</th></tr></thead><tbody>
+            {% for fk in table.foreign_keys %}<tr><td><code>{{ fk.name }}</code></td><td>{{ fk.columns|join(", ") }}</td><td><code>{{ fk.referenced_table }}({{ fk.referenced_columns|join(", ") }})</code></td><td>{{ fk.on_update }}</td><td>{{ fk.on_delete }}</td><td class="flag">{{ "✓" if fk.deferrable else "" }}</td></tr>{% endfor %}
+          </tbody></table></div>
+          {% else %}<p class="empty">定義なし</p>{% endif %}
+        </div>
+      </article>
+      {% else %}<p class="empty">テーブル定義なし</p>{% endfor %}
+    </section>
+
+    <section id="views">
+      <h2>ビュー（{{ definition.views|length }}）</h2>
+      {% for view in definition.views %}<article class="object"><div class="object-title"><h3>{{ view.logical_name }}</h3><span class="physical">{{ view.physical_name }}</span></div>{% if view.description %}<p>{{ view.description }}</p>{% endif %}<pre><code>{{ view.sql }}</code></pre></article>{% else %}<p class="empty">ビュー定義なし</p>{% endfor %}
+    </section>
+
+    <section id="procedures">
+      <h2>ストアドプロシージャ（{{ definition.stored_procedures|length }}）</h2>
+      {% for procedure in definition.stored_procedures %}<article class="object"><div class="object-title"><h3>{{ procedure.logical_name }}</h3><span class="physical">{{ procedure.physical_name }}</span></div>{% if procedure.description %}<p>{{ procedure.description }}</p>{% endif %}<pre><code>{{ procedure.sql }}</code></pre></article>{% else %}<p class="empty">ストアドプロシージャ定義なし</p>{% endfor %}
+    </section>
+
+    <footer>SSOT: YAML / db-teigisho {{ tool_version }}</footer>
+  </main>
+</body>
+</html>
+

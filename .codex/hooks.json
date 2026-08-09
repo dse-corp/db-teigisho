@@ -1,0 +1,18 @@
+{
+  "description": "Validate database definition YAML after Codex edits it.",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "^(apply_patch|Bash)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "/usr/bin/env python3 \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.codex/hooks/validate_database_definitions.py\"",
+            "timeout": 30,
+            "statusMessage": "Validating database definitions"
+          }
+        ]
+      }
+    ]
+  }
+}

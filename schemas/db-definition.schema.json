@@ -1,0 +1,571 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "ColumnDefinition": {
+      "additionalProperties": false,
+      "description": "A table column.",
+      "properties": {
+        "physical_name": {
+          "description": "カラム物理名",
+          "minLength": 1,
+          "title": "Physical Name",
+          "type": "string"
+        },
+        "logical_name": {
+          "description": "カラム論理名",
+          "minLength": 1,
+          "title": "Logical Name",
+          "type": "string"
+        },
+        "data_type": {
+          "description": "DBMSのデータ型",
+          "minLength": 1,
+          "title": "Data Type",
+          "type": "string"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "長さまたは精度",
+          "title": "Length"
+        },
+        "scale": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "小数点以下桁数",
+          "title": "Scale"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "integer"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "デフォルト値",
+          "title": "Default"
+        },
+        "not_null": {
+          "default": false,
+          "description": "NOT NULL制約",
+          "title": "Not Null",
+          "type": "boolean"
+        },
+        "unique": {
+          "default": false,
+          "description": "単一カラムUNIQUE制約",
+          "title": "Unique",
+          "type": "boolean"
+        },
+        "primary_key": {
+          "default": false,
+          "description": "主キーカラム",
+          "title": "Primary Key",
+          "type": "boolean"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "補足説明",
+          "title": "Description"
+        }
+      },
+      "required": [
+        "physical_name",
+        "logical_name",
+        "data_type"
+      ],
+      "title": "ColumnDefinition",
+      "type": "object"
+    },
+    "DatabaseSettings": {
+      "additionalProperties": false,
+      "description": "Target database and DBMS settings.",
+      "properties": {
+        "dbms_name": {
+          "description": "DBMS名",
+          "minLength": 1,
+          "title": "Dbms Name",
+          "type": "string"
+        },
+        "dbms_version": {
+          "description": "DBMSバージョン",
+          "minLength": 1,
+          "title": "Dbms Version",
+          "type": "string"
+        },
+        "server_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "サーバー名",
+          "title": "Server Name"
+        },
+        "port": {
+          "anyOf": [
+            {
+              "maximum": 65535,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "ポート番号",
+          "title": "Port"
+        },
+        "database_name": {
+          "description": "データベース名",
+          "minLength": 1,
+          "title": "Database Name",
+          "type": "string"
+        },
+        "schema_name": {
+          "description": "スキーマ名",
+          "minLength": 1,
+          "title": "Schema Name",
+          "type": "string"
+        },
+        "collation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Collation",
+          "title": "Collation"
+        }
+      },
+      "required": [
+        "dbms_name",
+        "dbms_version",
+        "database_name",
+        "schema_name"
+      ],
+      "title": "DatabaseSettings",
+      "type": "object"
+    },
+    "DocumentManagement": {
+      "additionalProperties": false,
+      "description": "Document ownership and revision metadata.",
+      "properties": {
+        "project_number": {
+          "description": "プロジェクト番号",
+          "minLength": 1,
+          "title": "Project Number",
+          "type": "string"
+        },
+        "system_name": {
+          "description": "システム名",
+          "minLength": 1,
+          "title": "System Name",
+          "type": "string"
+        },
+        "subsystem_name": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "サブシステム名",
+          "title": "Subsystem Name"
+        },
+        "created_at": {
+          "description": "作成日時（ISO 8601）",
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "updated_at": {
+          "description": "最終変更日時（ISO 8601）",
+          "format": "date-time",
+          "title": "Updated At",
+          "type": "string"
+        }
+      },
+      "required": [
+        "project_number",
+        "system_name",
+        "created_at",
+        "updated_at"
+      ],
+      "title": "DocumentManagement",
+      "type": "object"
+    },
+    "ForeignKeyDefinition": {
+      "additionalProperties": false,
+      "description": "A foreign key between tables in this definition.",
+      "properties": {
+        "name": {
+          "description": "外部キー制約名",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "columns": {
+          "description": "参照元カラム",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "referenced_table": {
+          "description": "参照先テーブル物理名",
+          "minLength": 1,
+          "title": "Referenced Table",
+          "type": "string"
+        },
+        "referenced_columns": {
+          "description": "参照先カラム",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Referenced Columns",
+          "type": "array"
+        },
+        "on_update": {
+          "default": "NO ACTION",
+          "description": "更新時アクション",
+          "enum": [
+            "NO ACTION",
+            "RESTRICT",
+            "CASCADE",
+            "SET NULL",
+            "SET DEFAULT"
+          ],
+          "title": "On Update",
+          "type": "string"
+        },
+        "on_delete": {
+          "default": "NO ACTION",
+          "description": "削除時アクション",
+          "enum": [
+            "NO ACTION",
+            "RESTRICT",
+            "CASCADE",
+            "SET NULL",
+            "SET DEFAULT"
+          ],
+          "title": "On Delete",
+          "type": "string"
+        },
+        "deferrable": {
+          "default": false,
+          "description": "遅延可能制約",
+          "title": "Deferrable",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "columns",
+        "referenced_table",
+        "referenced_columns"
+      ],
+      "title": "ForeignKeyDefinition",
+      "type": "object"
+    },
+    "IndexColumn": {
+      "additionalProperties": false,
+      "description": "An ordered column in an index.",
+      "properties": {
+        "name": {
+          "description": "対象カラム物理名",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "order": {
+          "default": "ASC",
+          "description": "ソート順",
+          "enum": [
+            "ASC",
+            "DESC"
+          ],
+          "title": "Order",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "IndexColumn",
+      "type": "object"
+    },
+    "IndexDefinition": {
+      "additionalProperties": false,
+      "description": "A DBMS-agnostic index definition.",
+      "properties": {
+        "name": {
+          "description": "インデックス名",
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "btree/hash等のインデックス種別",
+          "title": "Type"
+        },
+        "unique": {
+          "default": false,
+          "description": "UNIQUEインデックス",
+          "title": "Unique",
+          "type": "boolean"
+        },
+        "columns": {
+          "description": "キー列",
+          "items": {
+            "$ref": "#/$defs/IndexColumn"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "include_columns": {
+          "description": "付加列",
+          "items": {
+            "type": "string"
+          },
+          "title": "Include Columns",
+          "type": "array"
+        },
+        "where": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "部分インデックス条件",
+          "title": "Where"
+        }
+      },
+      "required": [
+        "name",
+        "columns"
+      ],
+      "title": "IndexDefinition",
+      "type": "object"
+    },
+    "SqlObjectDefinition": {
+      "additionalProperties": false,
+      "description": "Common definition for views and stored procedures.",
+      "properties": {
+        "physical_name": {
+          "description": "物理名",
+          "minLength": 1,
+          "title": "Physical Name",
+          "type": "string"
+        },
+        "logical_name": {
+          "description": "論理名",
+          "minLength": 1,
+          "title": "Logical Name",
+          "type": "string"
+        },
+        "sql": {
+          "description": "SQL本文",
+          "minLength": 1,
+          "title": "Sql",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "補足説明",
+          "title": "Description"
+        }
+      },
+      "required": [
+        "physical_name",
+        "logical_name",
+        "sql"
+      ],
+      "title": "SqlObjectDefinition",
+      "type": "object"
+    },
+    "TableDefinition": {
+      "additionalProperties": false,
+      "description": "A physical database table.",
+      "properties": {
+        "physical_name": {
+          "description": "テーブル物理名",
+          "minLength": 1,
+          "title": "Physical Name",
+          "type": "string"
+        },
+        "logical_name": {
+          "description": "テーブル論理名",
+          "minLength": 1,
+          "title": "Logical Name",
+          "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "テーブル説明",
+          "title": "Description"
+        },
+        "columns": {
+          "description": "カラム",
+          "items": {
+            "$ref": "#/$defs/ColumnDefinition"
+          },
+          "minItems": 1,
+          "title": "Columns",
+          "type": "array"
+        },
+        "indexes": {
+          "description": "インデックス",
+          "items": {
+            "$ref": "#/$defs/IndexDefinition"
+          },
+          "title": "Indexes",
+          "type": "array"
+        },
+        "foreign_keys": {
+          "description": "外部キー",
+          "items": {
+            "$ref": "#/$defs/ForeignKeyDefinition"
+          },
+          "title": "Foreign Keys",
+          "type": "array"
+        }
+      },
+      "required": [
+        "physical_name",
+        "logical_name",
+        "columns"
+      ],
+      "title": "TableDefinition",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "description": "YAML-first table, view, and stored procedure definition",
+  "properties": {
+    "format_version": {
+      "const": "1.0",
+      "description": "定義フォーマットのバージョン",
+      "title": "Format Version",
+      "type": "string"
+    },
+    "document": {
+      "$ref": "#/$defs/DocumentManagement"
+    },
+    "database": {
+      "$ref": "#/$defs/DatabaseSettings"
+    },
+    "tables": {
+      "items": {
+        "$ref": "#/$defs/TableDefinition"
+      },
+      "title": "Tables",
+      "type": "array"
+    },
+    "views": {
+      "items": {
+        "$ref": "#/$defs/SqlObjectDefinition"
+      },
+      "title": "Views",
+      "type": "array"
+    },
+    "stored_procedures": {
+      "items": {
+        "$ref": "#/$defs/SqlObjectDefinition"
+      },
+      "title": "Stored Procedures",
+      "type": "array"
+    }
+  },
+  "required": [
+    "format_version",
+    "document",
+    "database",
+    "tables",
+    "views",
+    "stored_procedures"
+  ],
+  "title": "Database Definition",
+  "type": "object"
+}

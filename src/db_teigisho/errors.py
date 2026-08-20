@@ -34,3 +34,7 @@ class DefinitionValidationError(DefinitionError):
         self.issues = issues
         details = "\n".join(f"  - {issue}" for issue in issues)
         super().__init__(f"Definition is invalid: {source}\n{details}")
+
+
+class DefinitionRenderError(DefinitionError):
+    """Raised when a human-readable artifact cannot be rendered."""

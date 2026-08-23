@@ -6,13 +6,17 @@ import hashlib
 import html
 import json
 import re
+from base64 import b64encode
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from importlib.resources import as_file, files
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 from openpyxl import Workbook
+from openpyxl.drawing.image import Image as OpenpyxlImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.properties import PageSetupProperties
@@ -25,6 +29,9 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
+    Image as ReportlabImage,
+)
+from reportlab.platypus import (
     PageBreak,
     Paragraph,
     SimpleDocTemplate,
@@ -35,6 +42,12 @@ from reportlab.platypus import (
 )
 
 from db_teigisho import __version__
+from db_teigisho.diagram_render import (
+    DEFAULT_ER_DIAGRAM_MODES,
+    RenderedErDiagram,
+    render_er_diagrams,
+)
+from db_teigisho.er import ColumnDisplayMode, render_mermaid
 from db_teigisho.loader import load_definition
 from db_teigisho.models import DatabaseDefinition, SqlObjectDefinition, TableDefinition
 
@@ -63,7 +76,31 @@ def _excel_value(value: object) -> Any:
     return value
 
 
-def render_html(definition: DatabaseDefinition, output: Path) -> None:
+def _svg_data_uri(svg: bytes) -> str:
+    return f"data:image/svg+xml;base64,{b64encode(svg).decode('ascii')}"
+
+
+def _all_er_diagrams(
+    definition: DatabaseDefinition,
+    diagrams: Mapping[ColumnDisplayMode, RenderedErDiagram] | None,
+) -> Mapping[ColumnDisplayMode, RenderedErDiagram]:
+    return diagrams if diagrams is not None else render_er_diagrams(definition)
+
+
+def _default_er_diagram(
+    definition: DatabaseDefinition,
+    diagrams: Mapping[ColumnDisplayMode, RenderedErDiagram] | None,
+) -> RenderedErDiagram:
+    if diagrams is not None:
+        return diagrams["all"]
+    return render_er_diagrams(definition, modes=("all",))["all"]
+
+
+def render_html(
+    definition: DatabaseDefinition,
+    output: Path,
+    diagrams: Mapping[ColumnDisplayMode, RenderedErDiagram] | None = None,
+) -> None:
     """Render a standalone, responsive HTML definition."""
 
     _ensure_parent(output)
@@ -73,9 +110,17 @@ def render_html(definition: DatabaseDefinition, output: Path) -> None:
         trim_blocks=True,
         lstrip_blocks=True,
     )
+    rendered_diagrams = _all_er_diagrams(definition, diagrams)
     template = environment.get_template("definition.html.j2")
     output.write_text(
-        template.render(definition=definition, tool_version=__version__),
+        template.render(
+            definition=definition,
+            er_diagram_images={
+                mode: _svg_data_uri(rendered_diagrams[mode].svg)
+                for mode in DEFAULT_ER_DIAGRAM_MODES
+            },
+            tool_version=__version__,
+        ),
         encoding="utf-8",
     )
 
@@ -205,6 +250,30 @@ def _table_list_sheet(workbook: Workbook, definition: DatabaseDefinition) -> Non
     sheet.print_area = sheet.dimensions
 
 
+def _er_sheet(workbook: Workbook, diagram: RenderedErDiagram) -> None:
+    sheet = workbook.create_sheet("ER図")
+    sheet.sheet_view.showGridLines = False
+    _style_title(sheet, "ER図（全カラム）", 16)
+    sheet.cell(2, 1, "PK/FKとカーディナリティを含むER図").font = Font(bold=True, color="4A5968")
+    image = OpenpyxlImage(BytesIO(diagram.png))
+    maximum_width = 1800
+    if image.width > maximum_width:
+        scale = maximum_width / image.width
+        image.width = maximum_width
+        image.height = int(image.height * scale)
+    sheet.add_image(image, "A3")
+    for column in range(1, 17):
+        sheet.column_dimensions[get_column_letter(column)].width = 12
+    for row in range(3, 46):
+        sheet.row_dimensions[row].height = 18
+    sheet.freeze_panes = "A3"
+    sheet.page_setup.orientation = "landscape"
+    sheet.page_setup.fitToWidth = 1
+    sheet.page_setup.fitToHeight = 0
+    sheet.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
+    sheet.print_area = "A1:P45"
+
+
 def _table_sheet(workbook: Workbook, table: TableDefinition, title: str) -> None:
     sheet = workbook.create_sheet(title)
     sheet.sheet_view.showGridLines = False
@@ -326,14 +395,19 @@ def _sql_sheet(workbook: Workbook, title: str, objects: list[SqlObjectDefinition
     sheet.print_area = sheet.dimensions
 
 
-def render_xlsx(definition: DatabaseDefinition, output: Path) -> None:
+def render_xlsx(
+    definition: DatabaseDefinition,
+    output: Path,
+    diagrams: Mapping[ColumnDisplayMode, RenderedErDiagram] | None = None,
+) -> None:
     """Render an Excel workbook optimized for review and printing."""
 
     _ensure_parent(output)
     workbook = Workbook()
     _document_sheet(workbook, definition)
     _table_list_sheet(workbook, definition)
-    existing = {"文書情報".casefold(), "テーブル一覧".casefold()}
+    _er_sheet(workbook, _default_er_diagram(definition, diagrams))
+    existing = {"文書情報".casefold(), "テーブル一覧".casefold(), "ER図".casefold()}
     for table in definition.tables:
         _table_sheet(workbook, table, _safe_sheet_title(table.physical_name, existing))
     _sql_sheet(workbook, "ビュー", definition.views)
@@ -459,7 +533,21 @@ def _page_number(canvas: Any, document: Any) -> None:
     canvas.restoreState()
 
 
-def render_pdf(definition: DatabaseDefinition, output: Path) -> None:
+def _pdf_er_diagram(diagram: RenderedErDiagram) -> ReportlabImage:
+    image = ReportlabImage(BytesIO(diagram.png))
+    maximum_width = landscape(A4)[0] - 28 * mm
+    maximum_height = landscape(A4)[1] - 48 * mm
+    scale = min(maximum_width / image.imageWidth, maximum_height / image.imageHeight, 1)
+    image.drawWidth = image.imageWidth * scale
+    image.drawHeight = image.imageHeight * scale
+    return image
+
+
+def render_pdf(
+    definition: DatabaseDefinition,
+    output: Path,
+    diagrams: Mapping[ColumnDisplayMode, RenderedErDiagram] | None = None,
+) -> None:
     """Render a Japanese-capable review PDF."""
 
     _ensure_parent(output)
@@ -506,6 +594,9 @@ def render_pdf(definition: DatabaseDefinition, output: Path) -> None:
 
     story.extend(
         [
+            PageBreak(),
+            Paragraph("ER図（全カラム）", styles["h1"]),
+            _pdf_er_diagram(_default_er_diagram(definition, diagrams)),
             PageBreak(),
             Paragraph(f"テーブル一覧（{len(definition.tables)}）", styles["h1"]),
         ]
@@ -674,10 +765,17 @@ def build_artifacts(source: Path, output_dir: Path) -> Path:
         "html": output_dir / f"{stem}.html",
         "xlsx": output_dir / f"{stem}.xlsx",
         "pdf": output_dir / f"{stem}.pdf",
+        "mermaid": output_dir / f"{stem}.mmd",
+        "svg": output_dir / f"{stem}.svg",
+        "png": output_dir / f"{stem}.png",
     }
-    render_html(definition, artifacts["html"])
-    render_xlsx(definition, artifacts["xlsx"])
-    render_pdf(definition, artifacts["pdf"])
+    diagrams = render_er_diagrams(definition)
+    render_html(definition, artifacts["html"], diagrams)
+    render_xlsx(definition, artifacts["xlsx"], diagrams)
+    render_pdf(definition, artifacts["pdf"], diagrams)
+    artifacts["mermaid"].write_text(render_mermaid(definition), encoding="utf-8")
+    artifacts["svg"].write_bytes(diagrams["all"].svg)
+    artifacts["png"].write_bytes(diagrams["all"].png)
     manifest = {
         "format_version": "1.0",
         "generated_at": datetime.now(UTC).isoformat(),

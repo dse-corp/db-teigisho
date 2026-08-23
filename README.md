@@ -7,8 +7,10 @@ Excelで管理していたテーブル定義書を、AIと人間の双方が扱�
 ## セットアップ
 
 ```bash
+# Node.js 22.12+ が必要
 python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
+npm ci
 ```
 
 ## 基本操作
@@ -19,6 +21,16 @@ python3 -m venv .venv
 
 # HTML・Excel・PDFとmanifestを一括生成
 .venv/bin/dbdef build definitions/example.yaml --output dist
+
+# Mermaid ER図コードを全カラム表示で生成
+.venv/bin/dbdef render definitions/example.yaml --format mermaid --output dist/database-definition.mmd
+
+# Mermaid ER図コードをPK/FKだけの表示で生成
+.venv/bin/dbdef render definitions/example.yaml --format mermaid --er-columns keys --output dist/database-definition.mmd
+
+# レンダリング済みSVG/PNGを出力
+.venv/bin/dbdef render definitions/example.yaml --format svg --er-columns tables --output dist/database-definition.svg
+.venv/bin/dbdef render definitions/example.yaml --format png --output dist/database-definition.png
 
 # JSON Schemaの再生成と、コミット済みSchemaのドリフト検査
 .venv/bin/dbdef schema --output schemas/db-definition.schema.json
@@ -44,13 +56,23 @@ GitHub Copilotは既存の `.agents/skills/manage-db-definitions` に加え、�
 
 `dbdef build` は次のファイルを出力します。
 
-- `<入力名>.html`: テーブル一覧と各定義をブラウザで検索・印刷できる自己完結HTML
-- `<入力名>.xlsx`: 文書情報、テーブル一覧、各テーブル、ビュー、ストアドプロシージャの各シート
-- `<入力名>.pdf`: 表紙、テーブル一覧、各定義を収録した配布・レビュー用PDF
+- `<入力名>.html`: 表示モードを切り替えられるレンダリング済みER図、テーブル一覧、各定義を検索・印刷できる自己完結HTML
+- `<入力名>.xlsx`: 文書情報、テーブル一覧、レンダリング済みER図、各テーブル、ビュー、ストアドプロシージャの各シート
+- `<入力名>.pdf`: 表紙、レンダリング済みER図、テーブル一覧、各定義を収録した配布・レビュー用PDF
+- `<入力名>.mmd`: FK制約から推論したMermaid ER Diagramコード
+- `<入力名>.svg` / `<入力名>.png`: 全カラム表示のレンダリング済みER図
 - `manifest.json`: 入力と各成果物のSHA-256、生成日時、ツールバージョン
 
 PDFにはNoto Sans JPを埋め込むため、CIや閲覧端末に日本語フォントがない場合も文字を表示できます。
 同梱フォントのライセンスは `src/db_teigisho/assets/OFL.txt` です。
+
+ER図はYAMLに定義されたFKから生成します。`npm ci`で固定されたMermaid CLIとPuppeteerを
+導入すると、外部CDNなしでSVG/PNGを生成します。HTMLでは「全カラム」「PK・FKのみ」
+「テーブルのみ」を切り替えられ、PDFとXLSXには全カラム表示を掲載します。参照元FK列がすべてNOT NULLなら親端を必須
+（`||`）、それ以外は任意（`|o`）とし、FKがUNIQUEまたは主キーと一致すれば子端を
+1（`||`）、それ以外は0以上の多（`o{`）とします。`ON DELETE CASCADE` またはFKが
+主キーの一部なら実線、それ以外は破線です。`--er-columns` は `all`、`keys`、`tables`
+を指定できます。`render --format svg|png` でも表示モードを指定できます。
 
 ## 自動検証
 

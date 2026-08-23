@@ -54,6 +54,15 @@
     code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
     pre { overflow-x: auto; margin: 8px 0 24px; padding: 16px; color: #e9f2f8; background: #15232d; border-radius: 4px; white-space: pre-wrap; }
     .subsection { margin-top: 18px; }
+    .er-controls { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 16px; }
+    .er-controls button {
+      border: 1px solid var(--brand); border-radius: 4px; padding: 8px 12px; color: var(--brand);
+      background: #fff; cursor: pointer; font: inherit;
+    }
+    .er-controls button[aria-pressed="true"] { color: #fff; background: var(--brand); }
+    .er-diagram-frame { overflow: auto; border: 1px solid var(--line); background: var(--surface); }
+    .er-diagram-image { display: block; width: 100%; min-width: 720px; height: auto; }
+    .er-diagram-image[hidden] { display: none; }
     footer { margin-top: 56px; color: var(--muted); font-size: 12px; }
     @media print {
       header { background: #fff; color: #000; padding: 0 0 18px; }
@@ -75,6 +84,7 @@
       <strong>目次</strong>
       <ul>
         <li><a href="#document">文書・DBMS情報</a></li>
+        <li><a href="#er-diagram">ER図</a></li>
         <li><a href="#table-list">テーブル一覧</a></li>
         {% for table in definition.tables %}<li><a href="#table-{{ loop.index }}">{{ table.logical_name }} ({{ table.physical_name }})</a></li>{% endfor %}
         {% if definition.views %}<li><a href="#views">ビュー</a></li>{% endif %}
@@ -98,6 +108,20 @@
         <div><dt>Collation</dt><dd>{{ definition.database.collation or "—" }}</dd></div>
         <div><dt>フォーマット</dt><dd>{{ definition.format_version }}</dd></div>
       </dl>
+    </section>
+
+    <section id="er-diagram">
+      <h2>ER図</h2>
+      <div class="er-controls" role="group" aria-label="ER図のカラム表示">
+        <button type="button" data-er-mode="all" aria-pressed="true">全カラム</button>
+        <button type="button" data-er-mode="keys" aria-pressed="false">PK・FKのみ</button>
+        <button type="button" data-er-mode="tables" aria-pressed="false">テーブルのみ</button>
+      </div>
+      <div class="er-diagram-frame">
+        <img class="er-diagram-image" data-er-mode="all" src="{{ er_diagram_images["all"] }}" alt="全カラムを表示したER図">
+        <img class="er-diagram-image" data-er-mode="keys" src="{{ er_diagram_images["keys"] }}" alt="PK・FKのみを表示したER図" hidden>
+        <img class="er-diagram-image" data-er-mode="tables" src="{{ er_diagram_images["tables"] }}" alt="テーブルのみを表示したER図" hidden>
+      </div>
     </section>
 
     <section id="table-list">
@@ -177,5 +201,18 @@
 
     <footer>SSOT: YAML / db-teigisho {{ tool_version }}</footer>
   </main>
+  <script>
+    (() => {
+      const controls = document.querySelectorAll("[data-er-mode]");
+      const images = document.querySelectorAll(".er-diagram-image");
+      controls.forEach((control) => {
+        control.addEventListener("click", () => {
+          const mode = control.dataset.erMode;
+          controls.forEach((button) => button.setAttribute("aria-pressed", String(button === control)));
+          images.forEach((image) => { image.hidden = image.dataset.erMode !== mode; });
+        });
+      });
+    })();
+  </script>
 </body>
 </html>

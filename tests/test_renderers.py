@@ -26,6 +26,13 @@ def test_renders_self_contained_html(definition_file: Path, tmp_path: Path) -> N
     assert "<style>" in html
     assert '<section id="table-list">' in html
     assert "テーブル一覧（2）" in html
+    assert '<section id="er-diagram">' in html
+    assert 'data-er-mode="all"' in html
+    assert 'data-er-mode="keys"' in html
+    assert 'data-er-mode="tables"' in html
+    assert "data:image/svg+xml;base64," in html
+    assert "全カラム" in html
+    assert ".er-diagram-image[hidden] { display: none; }" in html
     assert "カラム数" in html
     assert "顧客の基本情報を管理する。" in html
 
@@ -40,6 +47,7 @@ def test_renders_formatted_xlsx(definition_file: Path, tmp_path: Path) -> None:
     assert workbook.sheetnames == [
         "文書情報",
         "テーブル一覧",
+        "ER図",
         "customers",
         "orders",
         "ビュー",
@@ -52,6 +60,7 @@ def test_renders_formatted_xlsx(definition_file: Path, tmp_path: Path) -> None:
     assert workbook["テーブル一覧"]["F5"].value == 1
     assert workbook["テーブル一覧"]["G4"].value == 0
     assert workbook["テーブル一覧"].freeze_panes == "A4"
+    assert len(workbook["ER図"]._images) == 1
     assert workbook["orders"].freeze_panes == "A5"
     assert workbook["orders"]["B5"].value == "order_id"
     assert workbook["orders"].sheet_view.showGridLines is False
@@ -86,7 +95,8 @@ def test_renders_a_valid_pdf(definition_file: Path, tmp_path: Path) -> None:
     assert len(content) > 3_000
     assert b"/FontFile2" in content
     assert b"Adobe-Japan1" not in content
-    assert len(re.findall(rb"/Type\s*/Page\b", content)) == 6
+    assert b"/Subtype /Image" in content
+    assert len(re.findall(rb"/Type\s*/Page\b", content)) == 7
 
 
 def test_builds_all_ci_artifacts_with_sha256_manifest(
@@ -98,7 +108,14 @@ def test_builds_all_ci_artifacts_with_sha256_manifest(
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest["source"]["file"] == definition_file.name
-    assert {item["format"] for item in manifest["artifacts"]} == {"html", "xlsx", "pdf"}
+    assert {item["format"] for item in manifest["artifacts"]} == {
+        "html",
+        "xlsx",
+        "pdf",
+        "mermaid",
+        "svg",
+        "png",
+    }
     for item in manifest["artifacts"]:
         artifact = output_dir / item["file"]
         assert artifact.is_file()

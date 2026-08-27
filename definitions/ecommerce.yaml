@@ -1,0 +1,1092 @@
+# yaml-language-server: $schema=../schemas/db-definition.schema.json
+format_version: "1.0"
+
+document:
+  project_number: PJ-EC-001
+  system_name: ECサイト
+  subsystem_name: コマース基盤
+  created_at: "2026-08-27T09:00:00+09:00"
+  updated_at: "2026-08-27T10:00:00+09:00"
+
+database:
+  dbms_name: PostgreSQL
+  dbms_version: "17.5"
+  database_name: ecommerce
+  schema_name: public
+  collation: ja_JP.UTF-8
+
+tables:
+  - physical_name: customers
+    logical_name: 顧客
+    description: ECサイトを利用する顧客のアカウントとログイン情報を管理する。
+    columns:
+      - physical_name: customer_id
+        logical_name: 顧客ID
+        data_type: uuid
+        default: gen_random_uuid()
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: email
+        logical_name: メールアドレス
+        data_type: varchar
+        length: 320
+        not_null: true
+        unique: true
+      - physical_name: password_hash
+        logical_name: パスワードハッシュ
+        data_type: varchar
+        length: 255
+        not_null: true
+      - physical_name: display_name
+        logical_name: 表示名
+        data_type: varchar
+        length: 100
+        not_null: true
+      - physical_name: status
+        logical_name: 顧客ステータス
+        data_type: varchar
+        length: 20
+        default: active
+        not_null: true
+      - physical_name: created_at
+        logical_name: 登録日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+      - physical_name: updated_at
+        logical_name: 更新日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+    indexes:
+      - name: idx_customers_status
+        type: btree
+        unique: false
+        columns:
+          - name: status
+            order: ASC
+    foreign_keys: []
+
+  - physical_name: customer_addresses
+    logical_name: 顧客配送先
+    description: 顧客が保存した請求先・配送先住所を管理する。
+    columns:
+      - physical_name: address_id
+        logical_name: 住所ID
+        data_type: bigint
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: customer_id
+        logical_name: 顧客ID
+        data_type: uuid
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: address_type
+        logical_name: 住所種別
+        data_type: varchar
+        length: 20
+        not_null: true
+      - physical_name: recipient_name
+        logical_name: 宛名
+        data_type: varchar
+        length: 100
+        not_null: true
+      - physical_name: postal_code
+        logical_name: 郵便番号
+        data_type: varchar
+        length: 7
+        not_null: true
+      - physical_name: prefecture
+        logical_name: 都道府県
+        data_type: varchar
+        length: 20
+        not_null: true
+      - physical_name: city
+        logical_name: 市区町村
+        data_type: varchar
+        length: 100
+        not_null: true
+      - physical_name: address_line
+        logical_name: 住所
+        data_type: varchar
+        length: 255
+        not_null: true
+      - physical_name: phone
+        logical_name: 電話番号
+        data_type: varchar
+        length: 30
+        not_null: true
+      - physical_name: is_default
+        logical_name: 既定住所フラグ
+        data_type: boolean
+        default: false
+        not_null: true
+    indexes:
+      - name: idx_customer_addresses_customer
+        type: btree
+        unique: false
+        columns:
+          - name: customer_id
+            order: ASC
+    foreign_keys:
+      - name: fk_customer_addresses_customers
+        columns:
+          - customer_id
+        referenced_table: customers
+        referenced_columns:
+          - customer_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+
+  - physical_name: categories
+    logical_name: 商品カテゴリ
+    description: 商品を分類する階層型カテゴリを管理する。
+    columns:
+      - physical_name: category_id
+        logical_name: カテゴリID
+        data_type: bigint
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: parent_category_id
+        logical_name: 親カテゴリID
+        data_type: bigint
+        not_null: false
+        unique: false
+        primary_key: false
+      - physical_name: category_name
+        logical_name: カテゴリ名
+        data_type: varchar
+        length: 100
+        not_null: true
+      - physical_name: slug
+        logical_name: URLスラッグ
+        data_type: varchar
+        length: 120
+        not_null: true
+        unique: true
+      - physical_name: display_order
+        logical_name: 表示順
+        data_type: integer
+        default: 0
+        not_null: true
+      - physical_name: is_active
+        logical_name: 有効フラグ
+        data_type: boolean
+        default: true
+        not_null: true
+    indexes:
+      - name: idx_categories_parent
+        type: btree
+        unique: false
+        columns:
+          - name: parent_category_id
+            order: ASC
+    foreign_keys:
+      - name: fk_categories_parent
+        columns:
+          - parent_category_id
+        referenced_table: categories
+        referenced_columns:
+          - category_id
+        on_update: CASCADE
+        on_delete: SET NULL
+        deferrable: false
+
+  - physical_name: products
+    logical_name: 商品
+    description: 販売単位ではなく商品ファミリー単位の基本情報を管理する。
+    columns:
+      - physical_name: product_id
+        logical_name: 商品ID
+        data_type: bigint
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: product_name
+        logical_name: 商品名
+        data_type: varchar
+        length: 200
+        not_null: true
+      - physical_name: description
+        logical_name: 商品説明
+        data_type: text
+        not_null: false
+      - physical_name: brand_name
+        logical_name: ブランド名
+        data_type: varchar
+        length: 100
+        not_null: false
+      - physical_name: status
+        logical_name: 商品ステータス
+        data_type: varchar
+        length: 20
+        default: draft
+        not_null: true
+      - physical_name: created_at
+        logical_name: 登録日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+      - physical_name: updated_at
+        logical_name: 更新日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+    indexes:
+      - name: idx_products_status
+        type: btree
+        unique: false
+        columns:
+          - name: status
+            order: ASC
+    foreign_keys: []
+
+  - physical_name: customer_lists
+    logical_name: 顧客商品リスト
+    description: 顧客が後で買う、ウィッシュリストなどの用途で自由に作成する商品リストを管理する。
+    columns:
+      - physical_name: list_id
+        logical_name: リストID
+        data_type: uuid
+        default: gen_random_uuid()
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: customer_id
+        logical_name: 顧客ID
+        data_type: uuid
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: list_name
+        logical_name: リスト名
+        data_type: varchar
+        length: 100
+        not_null: true
+      - physical_name: description
+        logical_name: リスト説明
+        data_type: text
+        not_null: false
+      - physical_name: created_at
+        logical_name: 作成日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+      - physical_name: updated_at
+        logical_name: 更新日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+    indexes:
+      - name: idx_customer_lists_customer
+        type: btree
+        unique: false
+        columns:
+          - name: customer_id
+            order: ASC
+    foreign_keys:
+      - name: fk_customer_lists_customers
+        columns:
+          - customer_id
+        referenced_table: customers
+        referenced_columns:
+          - customer_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+
+  - physical_name: customer_list_items
+    logical_name: 顧客商品リスト明細
+    description: 顧客商品リストに登録された商品と登録時の情報を管理する。
+    columns:
+      - physical_name: list_item_id
+        logical_name: リスト明細ID
+        data_type: bigint
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: list_id
+        logical_name: リストID
+        data_type: uuid
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: product_id
+        logical_name: 商品ID
+        data_type: bigint
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: note
+        logical_name: メモ
+        data_type: text
+        not_null: false
+      - physical_name: added_at
+        logical_name: 登録日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+    indexes:
+      - name: idx_customer_list_items_list_product
+        type: btree
+        unique: true
+        columns:
+          - name: list_id
+            order: ASC
+          - name: product_id
+            order: ASC
+    foreign_keys:
+      - name: fk_customer_list_items_lists
+        columns:
+          - list_id
+        referenced_table: customer_lists
+        referenced_columns:
+          - list_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+      - name: fk_customer_list_items_products
+        columns:
+          - product_id
+        referenced_table: products
+        referenced_columns:
+          - product_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+
+  - physical_name: product_categories
+    logical_name: 商品カテゴリ紐付け
+    description: 商品とカテゴリの多対多関係を管理する。
+    columns:
+      - physical_name: product_id
+        logical_name: 商品ID
+        data_type: bigint
+        not_null: true
+        unique: false
+        primary_key: true
+      - physical_name: category_id
+        logical_name: カテゴリID
+        data_type: bigint
+        not_null: true
+        unique: false
+        primary_key: true
+    indexes: []
+    foreign_keys:
+      - name: fk_product_categories_products
+        columns:
+          - product_id
+        referenced_table: products
+        referenced_columns:
+          - product_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+      - name: fk_product_categories_categories
+        columns:
+          - category_id
+        referenced_table: categories
+        referenced_columns:
+          - category_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+
+  - physical_name: product_variants
+    logical_name: 商品バリエーション
+    description: 色・サイズなどを含む実際の販売SKUと価格を管理する。
+    columns:
+      - physical_name: variant_id
+        logical_name: バリエーションID
+        data_type: bigint
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: product_id
+        logical_name: 商品ID
+        data_type: bigint
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: sku
+        logical_name: SKU
+        data_type: varchar
+        length: 64
+        not_null: true
+        unique: true
+      - physical_name: variant_name
+        logical_name: バリエーション名
+        data_type: varchar
+        length: 150
+        not_null: true
+      - physical_name: price
+        logical_name: 販売価格
+        data_type: numeric
+        length: 12
+        scale: 2
+        not_null: true
+      - physical_name: compare_at_price
+        logical_name: 通常価格
+        data_type: numeric
+        length: 12
+        scale: 2
+        not_null: false
+      - physical_name: weight_grams
+        logical_name: 重量グラム
+        data_type: integer
+        not_null: false
+      - physical_name: is_active
+        logical_name: 販売中フラグ
+        data_type: boolean
+        default: true
+        not_null: true
+    indexes:
+      - name: idx_product_variants_product
+        type: btree
+        unique: false
+        columns:
+          - name: product_id
+            order: ASC
+    foreign_keys:
+      - name: fk_product_variants_products
+        columns:
+          - product_id
+        referenced_table: products
+        referenced_columns:
+          - product_id
+        on_update: CASCADE
+        on_delete: RESTRICT
+        deferrable: false
+
+  - physical_name: inventory
+    logical_name: 在庫
+    description: SKUごとの在庫数と引当済み数量を管理する。
+    columns:
+      - physical_name: variant_id
+        logical_name: バリエーションID
+        data_type: bigint
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: quantity_on_hand
+        logical_name: 実在庫数
+        data_type: integer
+        default: 0
+        not_null: true
+      - physical_name: quantity_reserved
+        logical_name: 引当済み数量
+        data_type: integer
+        default: 0
+        not_null: true
+      - physical_name: reorder_point
+        logical_name: 発注点
+        data_type: integer
+        default: 0
+        not_null: true
+      - physical_name: updated_at
+        logical_name: 更新日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+    indexes: []
+    foreign_keys:
+      - name: fk_inventory_product_variants
+        columns:
+          - variant_id
+        referenced_table: product_variants
+        referenced_columns:
+          - variant_id
+        on_update: CASCADE
+        on_delete: RESTRICT
+        deferrable: false
+
+  - physical_name: shopping_carts
+    logical_name: ショッピングカート
+    description: 顧客が購入前に保持するカートを管理する。
+    columns:
+      - physical_name: cart_id
+        logical_name: カートID
+        data_type: uuid
+        default: gen_random_uuid()
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: customer_id
+        logical_name: 顧客ID
+        data_type: uuid
+        not_null: true
+        unique: true
+        primary_key: false
+      - physical_name: status
+        logical_name: カートステータス
+        data_type: varchar
+        length: 20
+        default: active
+        not_null: true
+      - physical_name: created_at
+        logical_name: 作成日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+      - physical_name: updated_at
+        logical_name: 更新日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+    indexes: []
+    foreign_keys:
+      - name: fk_shopping_carts_customers
+        columns:
+          - customer_id
+        referenced_table: customers
+        referenced_columns:
+          - customer_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+
+  - physical_name: cart_items
+    logical_name: カート明細
+    description: カートに入れられたSKUと数量を管理する。
+    columns:
+      - physical_name: cart_id
+        logical_name: カートID
+        data_type: uuid
+        not_null: true
+        unique: false
+        primary_key: true
+      - physical_name: variant_id
+        logical_name: バリエーションID
+        data_type: bigint
+        not_null: true
+        unique: false
+        primary_key: true
+      - physical_name: quantity
+        logical_name: 数量
+        data_type: integer
+        not_null: true
+      - physical_name: added_at
+        logical_name: 追加日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+    indexes: []
+    foreign_keys:
+      - name: fk_cart_items_carts
+        columns:
+          - cart_id
+        referenced_table: shopping_carts
+        referenced_columns:
+          - cart_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+      - name: fk_cart_items_variants
+        columns:
+          - variant_id
+        referenced_table: product_variants
+        referenced_columns:
+          - variant_id
+        on_update: CASCADE
+        on_delete: RESTRICT
+        deferrable: false
+
+  - physical_name: orders
+    logical_name: 受注
+    description: チェックアウト後に確定した注文と金額スナップショットを管理する。
+    columns:
+      - physical_name: order_id
+        logical_name: 受注ID
+        data_type: uuid
+        default: gen_random_uuid()
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: order_number
+        logical_name: 注文番号
+        data_type: varchar
+        length: 30
+        not_null: true
+        unique: true
+      - physical_name: customer_id
+        logical_name: 顧客ID
+        data_type: uuid
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: status
+        logical_name: 受注ステータス
+        data_type: varchar
+        length: 20
+        default: pending
+        not_null: true
+      - physical_name: subtotal
+        logical_name: 商品小計
+        data_type: numeric
+        length: 12
+        scale: 2
+        not_null: true
+      - physical_name: shipping_fee
+        logical_name: 送料
+        data_type: numeric
+        length: 12
+        scale: 2
+        default: 0
+        not_null: true
+      - physical_name: discount_amount
+        logical_name: 値引額
+        data_type: numeric
+        length: 12
+        scale: 2
+        default: 0
+        not_null: true
+      - physical_name: tax_amount
+        logical_name: 税額
+        data_type: numeric
+        length: 12
+        scale: 2
+        default: 0
+        not_null: true
+      - physical_name: total_amount
+        logical_name: 注文合計
+        data_type: numeric
+        length: 12
+        scale: 2
+        not_null: true
+      - physical_name: shipping_address_snapshot
+        logical_name: 配送先スナップショット
+        data_type: jsonb
+        not_null: true
+      - physical_name: placed_at
+        logical_name: 注文日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+    indexes:
+      - name: idx_orders_customer_status
+        type: btree
+        unique: false
+        columns:
+          - name: customer_id
+            order: ASC
+          - name: status
+            order: ASC
+      - name: idx_orders_placed_at
+        type: btree
+        unique: false
+        columns:
+          - name: placed_at
+            order: DESC
+    foreign_keys:
+      - name: fk_orders_customers
+        columns:
+          - customer_id
+        referenced_table: customers
+        referenced_columns:
+          - customer_id
+        on_update: CASCADE
+        on_delete: RESTRICT
+        deferrable: false
+
+  - physical_name: order_items
+    logical_name: 受注明細
+    description: 注文時点の商品名・SKU・単価を保持する明細を管理する。
+    columns:
+      - physical_name: order_item_id
+        logical_name: 受注明細ID
+        data_type: bigint
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: order_id
+        logical_name: 受注ID
+        data_type: uuid
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: variant_id
+        logical_name: バリエーションID
+        data_type: bigint
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: product_name_snapshot
+        logical_name: 商品名スナップショット
+        data_type: varchar
+        length: 200
+        not_null: true
+      - physical_name: sku_snapshot
+        logical_name: SKUスナップショット
+        data_type: varchar
+        length: 64
+        not_null: true
+      - physical_name: unit_price
+        logical_name: 単価
+        data_type: numeric
+        length: 12
+        scale: 2
+        not_null: true
+      - physical_name: quantity
+        logical_name: 数量
+        data_type: integer
+        not_null: true
+      - physical_name: line_amount
+        logical_name: 明細金額
+        data_type: numeric
+        length: 12
+        scale: 2
+        not_null: true
+    indexes:
+      - name: idx_order_items_order
+        type: btree
+        unique: false
+        columns:
+          - name: order_id
+            order: ASC
+    foreign_keys:
+      - name: fk_order_items_orders
+        columns:
+          - order_id
+        referenced_table: orders
+        referenced_columns:
+          - order_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+      - name: fk_order_items_variants
+        columns:
+          - variant_id
+        referenced_table: product_variants
+        referenced_columns:
+          - variant_id
+        on_update: CASCADE
+        on_delete: RESTRICT
+        deferrable: false
+
+  - physical_name: payments
+    logical_name: 決済
+    description: 注文に対する決済試行と外部決済サービスの識別子を管理する。
+    columns:
+      - physical_name: payment_id
+        logical_name: 決済ID
+        data_type: uuid
+        default: gen_random_uuid()
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: order_id
+        logical_name: 受注ID
+        data_type: uuid
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: payment_method
+        logical_name: 決済方法
+        data_type: varchar
+        length: 30
+        not_null: true
+      - physical_name: provider_transaction_id
+        logical_name: 決済サービス取引ID
+        data_type: varchar
+        length: 150
+        not_null: false
+        unique: true
+      - physical_name: amount
+        logical_name: 決済金額
+        data_type: numeric
+        length: 12
+        scale: 2
+        not_null: true
+      - physical_name: status
+        logical_name: 決済ステータス
+        data_type: varchar
+        length: 20
+        not_null: true
+      - physical_name: paid_at
+        logical_name: 決済完了日時
+        data_type: timestamptz
+        not_null: false
+    indexes:
+      - name: idx_payments_order
+        type: btree
+        unique: false
+        columns:
+          - name: order_id
+            order: ASC
+    foreign_keys:
+      - name: fk_payments_orders
+        columns:
+          - order_id
+        referenced_table: orders
+        referenced_columns:
+          - order_id
+        on_update: CASCADE
+        on_delete: RESTRICT
+        deferrable: false
+
+  - physical_name: shipments
+    logical_name: 配送
+    description: 注文の配送先、配送業者、追跡番号、配送状態を管理する。
+    columns:
+      - physical_name: shipment_id
+        logical_name: 配送ID
+        data_type: uuid
+        default: gen_random_uuid()
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: order_id
+        logical_name: 受注ID
+        data_type: uuid
+        not_null: true
+        unique: true
+        primary_key: false
+      - physical_name: carrier
+        logical_name: 配送業者
+        data_type: varchar
+        length: 50
+        not_null: true
+      - physical_name: tracking_number
+        logical_name: 追跡番号
+        data_type: varchar
+        length: 100
+        not_null: false
+        unique: true
+      - physical_name: status
+        logical_name: 配送ステータス
+        data_type: varchar
+        length: 20
+        default: preparing
+        not_null: true
+      - physical_name: shipped_at
+        logical_name: 出荷日時
+        data_type: timestamptz
+        not_null: false
+      - physical_name: delivered_at
+        logical_name: 配達完了日時
+        data_type: timestamptz
+        not_null: false
+    indexes: []
+    foreign_keys:
+      - name: fk_shipments_orders
+        columns:
+          - order_id
+        referenced_table: orders
+        referenced_columns:
+          - order_id
+        on_update: CASCADE
+        on_delete: RESTRICT
+        deferrable: false
+
+  - physical_name: reviews
+    logical_name: 商品レビュー
+    description: 購入者が投稿した商品評価とコメントを管理する。
+    columns:
+      - physical_name: review_id
+        logical_name: レビューID
+        data_type: bigint
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: product_id
+        logical_name: 商品ID
+        data_type: bigint
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: customer_id
+        logical_name: 顧客ID
+        data_type: uuid
+        not_null: true
+        unique: false
+        primary_key: false
+      - physical_name: rating
+        logical_name: 評価
+        data_type: smallint
+        not_null: true
+      - physical_name: title
+        logical_name: レビュータイトル
+        data_type: varchar
+        length: 120
+        not_null: false
+      - physical_name: body
+        logical_name: レビュー本文
+        data_type: text
+        not_null: false
+      - physical_name: status
+        logical_name: レビューステータス
+        data_type: varchar
+        length: 20
+        default: pending
+        not_null: true
+      - physical_name: created_at
+        logical_name: 投稿日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+    indexes:
+      - name: idx_reviews_product_status
+        type: btree
+        unique: false
+        columns:
+          - name: product_id
+            order: ASC
+          - name: status
+            order: ASC
+    foreign_keys:
+      - name: fk_reviews_products
+        columns:
+          - product_id
+        referenced_table: products
+        referenced_columns:
+          - product_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+      - name: fk_reviews_customers
+        columns:
+          - customer_id
+        referenced_table: customers
+        referenced_columns:
+          - customer_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+
+  - physical_name: coupons
+    logical_name: クーポン
+    description: 注文時に利用できる割引クーポンと利用制限を管理する。
+    columns:
+      - physical_name: coupon_id
+        logical_name: クーポンID
+        data_type: bigint
+        not_null: true
+        unique: true
+        primary_key: true
+      - physical_name: coupon_code
+        logical_name: クーポンコード
+        data_type: varchar
+        length: 50
+        not_null: true
+        unique: true
+      - physical_name: discount_type
+        logical_name: 割引種別
+        data_type: varchar
+        length: 20
+        not_null: true
+      - physical_name: discount_value
+        logical_name: 割引値
+        data_type: numeric
+        length: 12
+        scale: 2
+        not_null: true
+      - physical_name: minimum_order_amount
+        logical_name: 最低注文金額
+        data_type: numeric
+        length: 12
+        scale: 2
+        default: 0
+        not_null: true
+      - physical_name: usage_limit
+        logical_name: 利用上限回数
+        data_type: integer
+        not_null: false
+      - physical_name: used_count
+        logical_name: 利用済み回数
+        data_type: integer
+        default: 0
+        not_null: true
+      - physical_name: starts_at
+        logical_name: 開始日時
+        data_type: timestamptz
+        not_null: true
+      - physical_name: ends_at
+        logical_name: 終了日時
+        data_type: timestamptz
+        not_null: true
+      - physical_name: is_active
+        logical_name: 有効フラグ
+        data_type: boolean
+        default: true
+        not_null: true
+    indexes:
+      - name: idx_coupons_active_period
+        type: btree
+        unique: false
+        columns:
+          - name: is_active
+            order: ASC
+          - name: starts_at
+            order: ASC
+          - name: ends_at
+            order: ASC
+    foreign_keys: []
+
+  - physical_name: order_coupons
+    logical_name: 受注クーポン利用
+    description: 注文に適用したクーポンと割引額のスナップショットを管理する。
+    columns:
+      - physical_name: order_id
+        logical_name: 受注ID
+        data_type: uuid
+        not_null: true
+        unique: false
+        primary_key: true
+      - physical_name: coupon_id
+        logical_name: クーポンID
+        data_type: bigint
+        not_null: true
+        unique: false
+        primary_key: true
+      - physical_name: discount_amount
+        logical_name: 割引適用額
+        data_type: numeric
+        length: 12
+        scale: 2
+        not_null: true
+      - physical_name: applied_at
+        logical_name: 適用日時
+        data_type: timestamptz
+        default: CURRENT_TIMESTAMP
+        not_null: true
+    indexes: []
+    foreign_keys:
+      - name: fk_order_coupons_orders
+        columns:
+          - order_id
+        referenced_table: orders
+        referenced_columns:
+          - order_id
+        on_update: CASCADE
+        on_delete: CASCADE
+        deferrable: false
+      - name: fk_order_coupons_coupons
+        columns:
+          - coupon_id
+        referenced_table: coupons
+        referenced_columns:
+          - coupon_id
+        on_update: CASCADE
+        on_delete: RESTRICT
+        deferrable: false
+
+views:
+  - physical_name: product_sales_summary
+    logical_name: 商品販売集計
+    description: 商品別の販売数量と売上を集計する。
+    sql: |
+      SELECT
+          oi.variant_id,
+          SUM(oi.quantity) AS sold_quantity,
+          SUM(oi.line_amount) AS sales_amount
+      FROM order_items AS oi
+      INNER JOIN orders AS o ON o.order_id = oi.order_id
+      WHERE o.status IN ('paid', 'shipped', 'delivered')
+      GROUP BY oi.variant_id;
+
+stored_procedures: []

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import subprocess
 from pathlib import Path
 from typing import Any
@@ -29,10 +30,13 @@ def test_renders_svg_and_png_for_each_requested_mode(
     monkeypatch: pytest.MonkeyPatch, valid_definition: dict[str, Any]
 ) -> None:
     commands: list[list[str]] = []
+    puppeteer_configs: list[dict[str, list[str]]] = []
 
     def fake_run(command: list[str], **kwargs: object) -> subprocess.CompletedProcess[str]:
         commands.append(command)
         assert kwargs["shell"] is False
+        config = Path(command[command.index("-p") + 1])
+        puppeteer_configs.append(json.loads(config.read_text(encoding="utf-8")))
         _write_diagram_output(command)
         return subprocess.CompletedProcess(command, 0, "", "")
 
@@ -47,6 +51,9 @@ def test_renders_svg_and_png_for_each_requested_mode(
     assert len(commands) == 4
     expected_prefix = ["--no-install", "@mermaid-js/mermaid-cli", "-i"]
     assert all(command[1:4] == expected_prefix for command in commands)
+    assert puppeteer_configs == [
+        {"args": ["--no-sandbox", "--disable-setuid-sandbox"]}
+    ] * 4
 
 
 def test_reports_a_renderer_failure_with_command_output(

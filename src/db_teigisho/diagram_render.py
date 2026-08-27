@@ -21,6 +21,9 @@ _MERMAID_CONFIG = {
     "securityLevel": "strict",
     "theme": "neutral",
 }
+_PUPPETEER_CONFIG = {
+    "args": ["--no-sandbox", "--disable-setuid-sandbox"],
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,7 +43,9 @@ def _mmdc_command() -> str:
     return command
 
 
-def _run_mermaid_cli(source: Path, output: Path, config: Path) -> None:
+def _run_mermaid_cli(
+    source: Path, output: Path, config: Path, puppeteer_config: Path
+) -> None:
     command = [
         _mmdc_command(),
         "--no-install",
@@ -57,6 +62,8 @@ def _run_mermaid_cli(source: Path, output: Path, config: Path) -> None:
         "2",
         "-c",
         str(config),
+        "-p",
+        str(puppeteer_config),
         "-q",
     ]
     try:
@@ -97,14 +104,16 @@ def render_er_diagrams(
     with TemporaryDirectory(prefix="dbdef-er-") as temporary_directory:
         directory = Path(temporary_directory)
         config = directory / "mermaid-config.json"
+        puppeteer_config = directory / "puppeteer-config.json"
         config.write_text(json.dumps(_MERMAID_CONFIG), encoding="utf-8")
+        puppeteer_config.write_text(json.dumps(_PUPPETEER_CONFIG), encoding="utf-8")
         rendered: dict[ColumnDisplayMode, RenderedErDiagram] = {}
         for mode in modes:
             source = directory / f"diagram-{mode}.mmd"
             svg = directory / f"diagram-{mode}.svg"
             png = directory / f"diagram-{mode}.png"
             source.write_text(render_mermaid(definition, mode), encoding="utf-8")
-            _run_mermaid_cli(source, svg, config)
-            _run_mermaid_cli(source, png, config)
+            _run_mermaid_cli(source, svg, config, puppeteer_config)
+            _run_mermaid_cli(source, png, config, puppeteer_config)
             rendered[mode] = RenderedErDiagram(svg=_read_svg(svg), png=_read_png(png))
     return rendered

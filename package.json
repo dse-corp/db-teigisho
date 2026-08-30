@@ -1,7 +1,7 @@
 {
   "private": true,
   "scripts": {
-    "test": "node --test tests/test_er_viewer.mjs"
+    "test": "node --test tests/test_er_*.mjs"
   },
   "devDependencies": {
     "@mermaid-js/mermaid-cli": "11.16.0",

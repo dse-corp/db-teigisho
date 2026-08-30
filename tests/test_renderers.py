@@ -30,7 +30,8 @@ def test_renders_self_contained_html(definition_file: Path, tmp_path: Path) -> N
     assert "<style>" in html
     assert '<section id="table-list">' in html
     assert "テーブル一覧（2）" in html
-    assert '<section id="er-diagram">' in html
+    assert '<section id="er-diagram"' in html
+    assert re.search(r'data-er-definition-id="[0-9a-f]{64}"', html)
     assert 'data-er-mode="all"' in html
     assert 'data-er-mode="keys"' in html
     assert 'data-er-mode="tables"' in html
@@ -56,7 +57,9 @@ def test_renders_interactive_er_viewer_controls_and_extension_contract(
     assert 'data-er-action="zoom-in"' in html
     assert 'data-er-action="zoom-out"' in html
     assert 'data-er-action="fit"' in html
+    assert 'data-er-action="reset-layout"' in html
     assert 'id="dbdef-er-zoom-level"' in html
+    assert 'id="dbdef-er-layout-status"' in html
     assert 'class="er-diagram-fallback er-diagram-image"' in html
     assert "static fallback" not in html
     assert "window.dbdefErViewer" in html
@@ -64,10 +67,33 @@ def test_renders_interactive_er_viewer_controls_and_extension_contract(
     assert "setNodePositions" in html
     assert "redrawEdges" in html
     assert "setEdgePathRenderer" in html
+    assert "window.dbdefErLayout" in html
     assert "dbdef:er-node-position-change" in html
     assert "dbdef:er-edges-redrawn" in html
     assert "@media print" in html
     assert re.search(r'(?:src|href)="https?://', html) is None
+
+
+def test_er_layout_definition_identifier_changes_with_definition_identity(
+    definition_file: Path, tmp_path: Path
+) -> None:
+    definition = load_definition(definition_file)
+    changed = definition.model_copy(deep=True)
+    changed.database.database_name = "separate_database"
+    diagram = RenderedErDiagram(svg=b"<svg></svg>", png=b"")
+    diagrams = {mode: diagram for mode in DEFAULT_ER_DIAGRAM_MODES}
+    first_output = tmp_path / "first.html"
+    second_output = tmp_path / "second.html"
+
+    render_html(definition, first_output, diagrams)
+    render_html(changed, second_output, diagrams)
+
+    pattern = r'data-er-definition-id="([0-9a-f]{64})"'
+    first_match = re.search(pattern, first_output.read_text(encoding="utf-8"))
+    second_match = re.search(pattern, second_output.read_text(encoding="utf-8"))
+    assert first_match is not None
+    assert second_match is not None
+    assert first_match.group(1) != second_match.group(1)
 
 
 def test_embeds_restorable_graph_json_without_terminating_the_script_element(

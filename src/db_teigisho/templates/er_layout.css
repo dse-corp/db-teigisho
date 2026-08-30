@@ -1,0 +1,5 @@
+    .er-node { cursor: move; }
+    .er-node.er-is-dragging { cursor: grabbing; }
+    .er-node.er-is-dragging .er-node-background { stroke: var(--brand); stroke-width: 2.5; }
+    .er-layout-status { min-height: 1.5em; color: var(--muted); }
+    .er-layout-status[data-status="error"] { color: #a12622; font-weight: 650; }

@@ -99,6 +99,24 @@ def _html_script_json(value: object) -> str:
     )
 
 
+def _er_definition_id(definition: DatabaseDefinition) -> str:
+    identity = {
+        "project_number": definition.document.project_number,
+        "system_name": definition.document.system_name,
+        "subsystem_name": definition.document.subsystem_name,
+        "database_name": definition.database.database_name,
+        "schema_name": definition.database.schema_name,
+    }
+    serialized = json.dumps(
+        identity,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+        sort_keys=True,
+    )
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
 def _all_er_diagrams(
     definition: DatabaseDefinition,
     diagrams: Mapping[ColumnDisplayMode, RenderedErDiagram] | None,
@@ -141,6 +159,7 @@ def render_html(
             er_graph_json=_html_script_json(
                 build_er_graph(definition).model_dump(mode="json")
             ),
+            er_definition_id=_er_definition_id(definition),
             tool_version=__version__,
         ),
         encoding="utf-8",

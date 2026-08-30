@@ -82,6 +82,12 @@ def test_renders_interactive_er_viewer_controls_and_extension_contract(
     assert 'id="dbdef-er-details"' in html
     assert 'id="dbdef-er-details-close"' in html
     assert "dbdef:er-selection-change" in html
+    assert "syncRelationshipHighlighting" in html
+    assert "er-relationship-selection-active" in html
+    assert "er-relationship-selected" in html
+    assert "er-relationship-related" in html
+    assert "er-relationship-connected" in html
+    assert "er-relationship-dimmed" in html
     assert "er_details.js" not in html
     assert "er_details.css" not in html
     assert "@media print" in html

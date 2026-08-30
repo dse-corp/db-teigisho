@@ -6,3 +6,19 @@
       fill: var(--muted); paint-order: stroke; stroke: var(--surface); stroke-width: 5px;
       stroke-linejoin: round; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace;
     }
+    .er-edge-jump-underlay, .er-edge-jump-line {
+      fill: none; pointer-events: none; stroke-linecap: round;
+      vector-effect: non-scaling-stroke;
+    }
+    .er-edge-jump-underlay { stroke: var(--surface); stroke-width: 7px; }
+    .er-edge-jump-line { stroke: #536b7a; stroke-width: 1.4px; }
+    .er-edge-jump-line.er-edge-non_identifying { stroke-dasharray: 6 4; }
+    .er-edge-handle {
+      stroke: transparent; stroke-width: 14px; pointer-events: stroke; cursor: grab;
+    }
+    .er-edge-handle:focus {
+      outline: none; stroke: color-mix(in srgb, var(--brand) 28%, transparent);
+    }
+    .er-edge-handle[data-segment-axis="vertical"] { cursor: ew-resize; }
+    .er-edge-handle[data-segment-axis="horizontal"] { cursor: ns-resize; }
+    .er-is-routing .er-edge-handle { cursor: grabbing; }

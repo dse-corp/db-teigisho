@@ -325,6 +325,7 @@
 
   function reset() {
     viewer.setNodePositions(initialPositions, { source: "reset" });
+    viewportElement.dispatchEvent(new CustomEvent("dbdef:er-layout-reset"));
     viewer.fitToView();
     if (removeSavedLayouts("リセット")) {
       setStatus("保存済み配置を破棄し、初期配置に戻しました。");

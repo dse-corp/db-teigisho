@@ -12,6 +12,14 @@ const detailsScript = await readFile(
   new URL("../src/db_teigisho/templates/er_details.js", import.meta.url),
   "utf8",
 );
+const maximizeScript = await readFile(
+  new URL("../src/db_teigisho/templates/er_maximize.js", import.meta.url),
+  "utf8",
+);
+const maximizeStyle = await readFile(
+  new URL("../src/db_teigisho/templates/er_maximize.css", import.meta.url),
+  "utf8",
+);
 
 const graph = {
   format_version: "1.0",
@@ -128,6 +136,30 @@ const graph = {
         },
       ],
     },
+    {
+      id: "table_3",
+      physical_name: "products",
+      logical_name: "商品",
+      description: null,
+      indexes: [],
+      foreign_keys: [],
+      columns: [
+        {
+          id: "table_3_column_1",
+          physical_name: "product_id",
+          logical_name: "商品ID",
+          data_type: "uuid",
+          length: null,
+          scale: null,
+          default: null,
+          not_null: true,
+          unique: true,
+          primary_key: true,
+          description: null,
+          key_roles: ["PK"],
+        },
+      ],
+    },
   ],
   relationships: [
     {
@@ -152,6 +184,32 @@ const graph = {
       on_delete: "RESTRICT",
       deferrable: false,
     },
+    {
+      id: "relationship_2",
+      name: "fk_products_orders",
+      parent_table_id: "table_2",
+      child_table_id: "table_3",
+      column_pairs: [],
+      parent_cardinality: "exactly_one",
+      child_cardinality: "zero_or_many",
+      relationship_type: "non_identifying",
+      on_update: "NO ACTION",
+      on_delete: "RESTRICT",
+      deferrable: false,
+    },
+    {
+      id: "relationship_3",
+      name: "fk_customers_parent",
+      parent_table_id: "table_1",
+      child_table_id: "table_1",
+      column_pairs: [],
+      parent_cardinality: "zero_or_one",
+      child_cardinality: "zero_or_many",
+      relationship_type: "non_identifying",
+      on_update: "NO ACTION",
+      on_delete: "RESTRICT",
+      deferrable: false,
+    },
   ],
 };
 
@@ -169,6 +227,7 @@ const pageHtml = `<!doctype html>
     }
     .er-diagram-fallback { display: block; }
     .er-interactive-ready .er-diagram-fallback { display: none; }
+    ${maximizeStyle}
     @media print {
       .er-viewer, .er-controls { display: none !important; }
       .er-diagram-fallback { display: block !important; }
@@ -176,7 +235,7 @@ const pageHtml = `<!doctype html>
   </style>
 </head>
 <body>
-  <section id="er-diagram">
+  <section id="er-diagram" class="er-diagram-section">
     <div class="er-controls">
       <button type="button" data-er-mode="all" aria-pressed="true">全カラム</button>
       <button type="button" data-er-mode="keys" aria-pressed="false">PK・FKのみ</button>
@@ -185,6 +244,8 @@ const pageHtml = `<!doctype html>
       <output id="dbdef-er-zoom-level">100%</output>
       <button type="button" data-er-action="zoom-in">拡大</button>
       <button type="button" data-er-action="fit">全体表示</button>
+      <button type="button" data-er-action="maximize" aria-controls="er-diagram"
+        aria-pressed="false">最大化</button>
     </div>
     <div class="er-diagram-frame">
       <div id="dbdef-er-viewer" class="er-viewer"></div>
@@ -202,6 +263,7 @@ const pageHtml = `<!doctype html>
   <script id="dbdef-er-graph" type="application/json">${JSON.stringify(graph)}</script>
   <script>${viewerScript}</script>
   <script>${detailsScript}</script>
+  <script>${maximizeScript}</script>
 </body>
 </html>`;
 
@@ -224,7 +286,7 @@ before(async () => {
     request.continue();
   });
   await page.setContent(pageHtml, { waitUntil: "load" });
-  await page.waitForFunction(() => Boolean(window.dbdefErViewer));
+  await page.waitForFunction(() => Boolean(window.dbdefErViewer && window.dbdefErMaximize));
   assert.ok(requests.every((url) => url.startsWith("data:")));
 });
 
@@ -234,12 +296,12 @@ after(async () => {
 
 test("renders graph data and switches all three display modes", async () => {
   assert.deepEqual(pageErrors, []);
-  assert.equal(await page.$$eval(".er-node", (nodes) => nodes.length), 2);
-  assert.equal(await page.$$eval(".er-edge", (edges) => edges.length), 1);
-  assert.equal(await page.$$eval(".er-column-row", (rows) => rows.length), 5);
+  assert.equal(await page.$$eval(".er-node", (nodes) => nodes.length), 3);
+  assert.equal(await page.$$eval(".er-edge", (edges) => edges.length), 3);
+  assert.equal(await page.$$eval(".er-column-row", (rows) => rows.length), 6);
 
   await page.click('[data-er-mode="keys"]');
-  assert.equal(await page.$$eval(".er-column-row", (rows) => rows.length), 3);
+  assert.equal(await page.$$eval(".er-column-row", (rows) => rows.length), 4);
   assert.equal(await page.$eval('[data-er-mode="keys"]', (button) => button.ariaPressed), "true");
 
   await page.click('[data-er-mode="tables"]');
@@ -318,6 +380,66 @@ test("opens table and column details by mouse with exact special values", async 
     "0",
   );
   assert.equal(await page.evaluate(() => document.activeElement.dataset.tableId), "table_2");
+});
+
+test("highlights the selected table, related tables, and connecting lines", async () => {
+  await page.evaluate(() => window.dbdefErViewer.setMode("all"));
+  await page.click('[data-table-id="table_1"] .er-node-physical');
+
+  const highlighted = await page.evaluate(() => ({
+    active: document.querySelector("#dbdef-er-viewer").classList.contains(
+      "er-relationship-selection-active",
+    ),
+    selected: document.querySelector('[data-table-id="table_1"]').className.baseVal,
+    related: document.querySelector('[data-table-id="table_2"]').className.baseVal,
+    unrelated: document.querySelector('[data-table-id="table_3"]').className.baseVal,
+    directEdge: document.querySelector(
+      '[data-relationship-id="relationship_1"]',
+    ).className.baseVal,
+    unrelatedEdge: document.querySelector(
+      '[data-relationship-id="relationship_2"]',
+    ).className.baseVal,
+    selfEdge: document.querySelector(
+      '[data-relationship-id="relationship_3"]',
+    ).className.baseVal,
+    directLabel: document.querySelector(
+      '[data-relationship-label-id="relationship_1"]',
+    ).className.baseVal,
+    unrelatedLabel: document.querySelector(
+      '[data-relationship-label-id="relationship_2"]',
+    ).className.baseVal,
+  }));
+  assert.equal(highlighted.active, true);
+  assert.match(highlighted.selected, /\ber-relationship-selected\b/);
+  assert.match(highlighted.related, /\ber-relationship-related\b/);
+  assert.match(highlighted.unrelated, /\ber-relationship-dimmed\b/);
+  assert.match(highlighted.directEdge, /\ber-relationship-connected\b/);
+  assert.match(highlighted.unrelatedEdge, /\ber-relationship-dimmed\b/);
+  assert.match(highlighted.selfEdge, /\ber-relationship-connected\b/);
+  assert.match(highlighted.directLabel, /\ber-relationship-connected\b/);
+  assert.match(highlighted.unrelatedLabel, /\ber-relationship-dimmed\b/);
+
+  await page.click('[data-column-id="table_1_column_1"] .er-column-name');
+  assert.equal(
+    await page.$eval(
+      "#dbdef-er-viewer",
+      (viewer) => viewer.querySelectorAll(
+        ".er-relationship-selected, .er-relationship-related, " +
+        ".er-relationship-connected, .er-relationship-dimmed",
+      ).length,
+    ),
+    0,
+  );
+
+  await page.click('[data-table-id="table_1"] .er-node-physical');
+  await page.click("#dbdef-er-details-close");
+  assert.equal(
+    await page.$eval(
+      "#dbdef-er-viewer",
+      (viewer) => viewer.classList.contains("er-relationship-selection-active"),
+    ),
+    false,
+  );
 });
 
 test("supports roving keyboard selection, ARIA linkage, Escape, and close", async () => {
@@ -436,6 +558,65 @@ test("pans by dragging and fits the complete graph", async () => {
   assert.notEqual(fitted.x, dragged.x);
 });
 
+test("maximizes the diagram in-page and restores focus with Escape", async () => {
+  const maximized = await page.evaluate(() => {
+    const focusTarget = document.querySelector('[data-er-mode="keys"]');
+    focusTarget.focus();
+    const viewer = document.querySelector("#dbdef-er-viewer");
+    window.__maximizeEvents = [];
+    viewer.addEventListener("dbdef:er-maximize-change", (event) => {
+      window.__maximizeEvents.push({ ...event.detail });
+    });
+    window.dbdefErViewer.setViewport({ scale: 1.25, x: 18, y: 27 });
+    window.dbdefErMaximize.maximize();
+    return {
+      sectionClass: document.querySelector("#er-diagram").className,
+      bodyClass: document.body.className,
+      pressed: document.querySelector('[data-er-action="maximize"]').ariaPressed,
+      label: document.querySelector('[data-er-action="maximize"]').ariaLabel,
+      text: document.querySelector('[data-er-action="maximize"]').textContent,
+      position: getComputedStyle(document.querySelector("#er-diagram")).position,
+      viewport: window.dbdefErViewer.getState().viewport,
+      active: document.activeElement.getAttribute("data-er-action"),
+    };
+  });
+  assert.match(maximized.sectionClass, /\ber-is-maximized\b/);
+  assert.match(maximized.bodyClass, /\ber-diagram-is-maximized\b/);
+  assert.equal(maximized.pressed, "true");
+  assert.equal(
+    await page.$eval('[data-er-action="maximize"]', (button) => button.getAttribute("aria-controls")),
+    "er-diagram",
+  );
+  assert.equal(maximized.label, "ER図を通常表示に戻す");
+  assert.equal(maximized.text, "元に戻す");
+  assert.equal(maximized.position, "fixed");
+  assert.deepEqual(maximized.viewport, { scale: 1.25, x: 18, y: 27 });
+  assert.equal(maximized.active, "maximize");
+
+  await page.keyboard.press("Escape");
+  const restored = await page.evaluate(() => ({
+    sectionClass: document.querySelector("#er-diagram").className,
+    bodyClass: document.body.className,
+    pressed: document.querySelector('[data-er-action="maximize"]').ariaPressed,
+    label: document.querySelector('[data-er-action="maximize"]').ariaLabel,
+    text: document.querySelector('[data-er-action="maximize"]').textContent,
+    active: document.activeElement.dataset.erMode,
+    events: window.__maximizeEvents,
+    viewport: window.dbdefErViewer.getState().viewport,
+  }));
+  assert.doesNotMatch(restored.sectionClass, /\ber-is-maximized\b/);
+  assert.doesNotMatch(restored.bodyClass, /\ber-diagram-is-maximized\b/);
+  assert.equal(restored.pressed, "false");
+  assert.equal(restored.label, "ER図を最大化");
+  assert.equal(restored.text, "最大化");
+  assert.equal(restored.active, "keys");
+  assert.deepEqual(restored.events, [
+    { maximized: true, reason: "api" },
+    { maximized: false, reason: "escape" },
+  ]);
+  assert.deepEqual(restored.viewport, { scale: 1.25, x: 18, y: 27 });
+});
+
 test("publishes stable node-coordinate and edge-redraw boundaries", async () => {
   const result = await page.evaluate(() => {
     const viewer = document.querySelector("#dbdef-er-viewer");
@@ -470,14 +651,20 @@ test("publishes stable node-coordinate and edge-redraw boundaries", async () => 
 });
 
 test("keeps the static SVG fallback for print and disabled JavaScript", async () => {
+  await page.evaluate(() => window.dbdefErMaximize.maximize());
   await page.emulateMediaType("print");
   const printDisplay = await page.evaluate(() => ({
     fallback: getComputedStyle(document.querySelector(".er-diagram-fallback")).display,
     viewer: getComputedStyle(document.querySelector(".er-viewer")).display,
+    section: getComputedStyle(document.querySelector("#er-diagram")).position,
+    bodyOverflow: getComputedStyle(document.body).overflow,
   }));
   assert.equal(printDisplay.fallback, "block");
   assert.equal(printDisplay.viewer, "none");
+  assert.equal(printDisplay.section, "static");
+  assert.equal(printDisplay.bodyOverflow, "visible");
   await page.emulateMediaType("screen");
+  await page.evaluate(() => window.dbdefErMaximize.restore());
 
   const noScriptPage = await browser.newPage();
   await noScriptPage.setJavaScriptEnabled(false);

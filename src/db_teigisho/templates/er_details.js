@@ -206,6 +206,57 @@
         selection?.kind === "table" && node.dataset.tableId === selection.tableId,
       );
     });
+    syncRelationshipHighlighting();
+  }
+
+  function syncRelationshipHighlighting() {
+    const selectedTableId = selection?.kind === "table" ? selection.tableId : null;
+    const relatedTableIds = new Set();
+    const connectedRelationshipIds = new Set();
+    if (selectedTableId) {
+      relatedTableIds.add(selectedTableId);
+      graph.relationships.forEach((relationship) => {
+        const connected = relationship.parent_table_id === selectedTableId ||
+          relationship.child_table_id === selectedTableId;
+        if (!connected) {
+          return;
+        }
+        connectedRelationshipIds.add(relationship.id);
+        relatedTableIds.add(relationship.parent_table_id);
+        relatedTableIds.add(relationship.child_table_id);
+      });
+    }
+
+    viewer.classList.toggle("er-relationship-selection-active", selectedTableId !== null);
+    viewer.querySelectorAll("[data-table-id].er-node").forEach((node) => {
+      const selected = node.dataset.tableId === selectedTableId;
+      const related = selectedTableId !== null &&
+        relatedTableIds.has(node.dataset.tableId) && !selected;
+      node.classList.toggle("er-relationship-selected", selected);
+      node.classList.toggle("er-relationship-related", related);
+      node.classList.toggle(
+        "er-relationship-dimmed",
+        selectedTableId !== null && !selected && !related,
+      );
+    });
+
+    viewer.querySelectorAll(
+      "[data-relationship-id], [data-relationship-label-id], " +
+      "[data-relationship-cardinality-id]",
+    ).forEach((element) => {
+      const relationshipId = element.dataset.relationshipId ||
+        element.dataset.relationshipLabelId ||
+        element.dataset.relationshipCardinalityId;
+      const connected = connectedRelationshipIds.has(relationshipId);
+      element.classList.toggle(
+        "er-relationship-connected",
+        selectedTableId !== null && connected,
+      );
+      element.classList.toggle(
+        "er-relationship-dimmed",
+        selectedTableId !== null && !connected,
+      );
+    });
   }
 
   function emitSelectionChange(reason) {

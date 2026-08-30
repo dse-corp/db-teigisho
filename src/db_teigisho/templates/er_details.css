@@ -11,6 +11,28 @@
 .er-column-row.er-detail-column-selected .er-column-selection-background {
   fill: #b9dcef; stroke: #0b668f; stroke-width: 2; vector-effect: non-scaling-stroke;
 }
+.er-node, .er-edge, .er-edge-label, .er-edge-cardinality {
+  transition: opacity 140ms ease;
+}
+.er-node.er-relationship-selected .er-node-background {
+  stroke: #f0a202; stroke-width: 3; vector-effect: non-scaling-stroke;
+}
+.er-node.er-relationship-related .er-node-background {
+  stroke: var(--brand); stroke-width: 3; vector-effect: non-scaling-stroke;
+}
+.er-edge.er-relationship-connected {
+  stroke: #f0a202; stroke-width: 3; opacity: 1;
+}
+.er-edge-label.er-relationship-connected,
+.er-edge-cardinality.er-relationship-connected {
+  fill: #8a5700; font-weight: 800; opacity: 1;
+}
+.er-relationship-selection-active .er-relationship-dimmed {
+  opacity: 0.2;
+}
+@media (prefers-reduced-motion: reduce) {
+  .er-node, .er-edge, .er-edge-label, .er-edge-cardinality { transition: none; }
+}
 .er-detail-panel {
   position: absolute; z-index: 2; top: 12px; right: 12px; overflow: auto;
   width: min(390px, calc(100% - 24px)); max-height: calc(100% - 24px); padding: 18px;

@@ -91,6 +91,7 @@
 {% include "er_details.css" %}
 {% include "er_layout.css" %}
 {% include "er_auto_layout.css" %}
+{% include "er_maximize.css" %}
     .er-diagram-image { display: block; width: 100%; min-width: 720px; height: auto; }
     .er-diagram-image[hidden] { display: none; }
     footer { margin-top: 56px; color: var(--muted); font-size: 12px; }
@@ -144,7 +145,7 @@
       </dl>
     </section>
 
-    <section id="er-diagram" data-er-definition-id="{{ er_definition_id }}">
+    <section id="er-diagram" class="er-diagram-section" data-er-definition-id="{{ er_definition_id }}">
       <h2>ER図</h2>
       <div class="er-controls" aria-label="ER図の操作">
         <button type="button" data-er-mode="all" aria-pressed="true">全カラム</button>
@@ -165,6 +166,8 @@
         <output id="dbdef-er-zoom-level" class="er-zoom-level" aria-live="polite">100%</output>
         <button type="button" data-er-action="zoom-in" aria-label="ER図を拡大">＋</button>
         <button type="button" data-er-action="fit">全体表示</button>
+        <button type="button" data-er-action="maximize" aria-controls="er-diagram"
+          aria-pressed="false">最大化</button>
         <span class="er-control-separator" aria-hidden="true"></span>
         <button type="button" data-er-action="auto-layout">自動配置</button>
         <span class="er-layout-direction" role="group" aria-label="自動配置の方向">
@@ -283,6 +286,9 @@
   </script>
   <script>
 {% include "er_auto_layout.js" %}
+  </script>
+  <script>
+{% include "er_maximize.js" %}
   </script>
 </body>
 </html>

@@ -4,6 +4,38 @@ Excelで管理していたテーブル定義書を、AIと人間の双方が扱�
 置き換えるPythonツールです。YAMLをSingle Source of Truth（SSOT）とし、JSON Schema、
 意味検証、HTML・Excel・PDF、CI向けmanifestを同じ定義から生成します。
 
+## CLIとして利用
+
+PyPIからインストールして、`dbdef`コマンドを利用できます。
+
+```bash
+pipx install db-teigisho
+dbdef --version
+dbdef validate path/to/definition.yaml
+```
+
+更新・削除は次のコマンドで行います。
+
+```bash
+pipx upgrade db-teigisho
+pipx uninstall db-teigisho
+```
+
+Python 3.11以上が必要です。`validate`、`schema`、Mermaidコード生成はPythonだけで
+動作します。HTML・XLSX・PDF・SVG・PNGを生成する場合は、Node.js 22.12以上を用意し、
+リポジトリまたは作業環境で`npm ci`を実行してください。
+
+## PyPIへの公開（メンテナ向け）
+
+PyPIのTrusted Publisherに、Organization `dse-corp`、Repository `db-teigisho`、
+Workflow `.github/workflows/publish-python.yml`、Environment `pypi`を登録します。
+登録後はバージョンと同じタグを`origin`へpushすると、品質検査後にPyPIへ公開されます。
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## セットアップ
 
 ```bash
@@ -56,7 +88,7 @@ GitHub Copilotは既存の `.agents/skills/manage-db-definitions` に加え、�
 
 `dbdef build` は次のファイルを出力します。
 
-- `<入力名>.html`: ズーム・パン・表示モード切り替えと詳細パネルを備えたER図、テーブル一覧、各定義を検索・印刷できる自己完結HTML
+- `<入力名>.html`: ズーム・パン・表示モード切り替え・最大化と詳細パネルを備えたER図、テーブル一覧、各定義を検索・印刷できる自己完結HTML
 - `<入力名>.xlsx`: 文書情報、テーブル一覧、レンダリング済みER図、各テーブル、ビュー、ストアドプロシージャの各シート
 - `<入力名>.pdf`: 表紙、レンダリング済みER図、テーブル一覧、各定義を収録した配布・レビュー用PDF
 - `<入力名>.mmd`: FK制約から推論したMermaid ER Diagramコード
@@ -70,12 +102,14 @@ ER図はYAMLに定義されたFKから生成します。`npm ci`で固定され�
 導入すると、外部CDNなしでSVG/PNGを生成します。HTMLでは埋め込みグラフデータからER図を
 描画し、「全カラム」「PK・FKのみ」「テーブルのみ」の切り替え、リレーションの「曲線」「直線」
 「鍵線」の切り替え、ホイールまたはボタンでのズーム、背景ドラッグでのパン、テーブルのドラッグ
-による配置変更、「全体表示」を利用できます。鍵線は中央の水平・垂直セグメントをドラッグまたは
+による配置変更、「全体表示」、ER図をページ内で画面いっぱいに展開する「最大化」を利用できます。
+最大化中は背景スクロールを抑止し、Escapeまたは「元に戻す」で通常表示へ戻せます。鍵線は中央の水平・垂直セグメントをドラッグまたは
 矢印キーで移動でき、交差箇所を判別するLine jumpをOn/Offできます。線種は再生成せず即時反映され、
 自己参照、同一テーブル間の複数FK、双方向参照は経路をずらしてFK名を判別できます。
 FKの親子関係を層化した決定的な自動配置は「左→右」と「上→下」を切り替えられ、循環参照や
 自己参照、孤立テーブル、複数の連結成分も重ならないよう配置してからER図全体を表示します。
-テーブルまたはカラムを選択すると、インデックス、外部キー、制約、defaultを含む読み取り専用の
+テーブルを選択すると、選択テーブル、直接関連するテーブル、接続線を強調し、関連外の要素を
+薄く表示します。テーブルまたはカラムの選択時は、インデックス、外部キー、制約、defaultを含む
 詳細パネルを表示します。矢印キーで選択候補を移動し、EnterまたはSpaceで選択、Escapeまたは
 閉じるボタンで閉じられます。倍率は5%から300%の範囲です。変更した配置、選択した線種、鍵線位置、
 Line jump設定は同じブラウザの`localStorage`へ保存され、再読み込み時に復元されます。
@@ -143,6 +177,11 @@ PDFとXLSXには従来どおり全カラム表示を掲載します。参照元F
 基点に、復元済みテーブルと重なる場合だけ空き位置へ移してから全体表示します。保存領域が利用不可
 または容量超過の場合は、図の閲覧とドラッグを継続しながら画面上に保存失敗を表示し、
 `dbdef:er-layout-storage-error`イベントも発火します。
+
+最大化操作は`window.dbdefErMaximize` v1.0として公開され、`isMaximized()`、
+`setMaximized()`、`maximize()`、`restore()`、`toggle()`でページ内表示を切り替えられます。
+ビューア要素は`dbdef:er-maximize-change`イベントを発火し、`detail.maximized`と
+`detail.reason`を提供します。
 
 ## 自動検証
 

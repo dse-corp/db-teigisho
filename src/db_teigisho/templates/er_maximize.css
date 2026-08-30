@@ -1,0 +1,31 @@
+.er-diagram-section.er-is-maximized {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: auto;
+  margin: 0;
+  padding: 24px;
+  background: #fff;
+}
+.er-diagram-section.er-is-maximized > h2 { margin-top: 0; }
+.er-diagram-section.er-is-maximized .er-diagram-frame {
+  flex: 1 1 auto;
+  min-height: 360px;
+  height: auto;
+}
+body.er-diagram-is-maximized { overflow: hidden; }
+@media print {
+  body.er-diagram-is-maximized { overflow: visible; }
+  .er-diagram-section.er-is-maximized {
+    position: static;
+    display: block;
+    overflow: visible;
+    padding: 0;
+  }
+  .er-diagram-section.er-is-maximized .er-diagram-frame {
+    min-height: 0;
+    height: auto;
+  }
+}

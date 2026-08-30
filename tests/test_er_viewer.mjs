@@ -12,6 +12,14 @@ const detailsScript = await readFile(
   new URL("../src/db_teigisho/templates/er_details.js", import.meta.url),
   "utf8",
 );
+const maximizeScript = await readFile(
+  new URL("../src/db_teigisho/templates/er_maximize.js", import.meta.url),
+  "utf8",
+);
+const maximizeStyle = await readFile(
+  new URL("../src/db_teigisho/templates/er_maximize.css", import.meta.url),
+  "utf8",
+);
 
 const graph = {
   format_version: "1.0",
@@ -219,6 +227,7 @@ const pageHtml = `<!doctype html>
     }
     .er-diagram-fallback { display: block; }
     .er-interactive-ready .er-diagram-fallback { display: none; }
+    ${maximizeStyle}
     @media print {
       .er-viewer, .er-controls { display: none !important; }
       .er-diagram-fallback { display: block !important; }
@@ -226,7 +235,7 @@ const pageHtml = `<!doctype html>
   </style>
 </head>
 <body>
-  <section id="er-diagram">
+  <section id="er-diagram" class="er-diagram-section">
     <div class="er-controls">
       <button type="button" data-er-mode="all" aria-pressed="true">全カラム</button>
       <button type="button" data-er-mode="keys" aria-pressed="false">PK・FKのみ</button>
@@ -235,6 +244,8 @@ const pageHtml = `<!doctype html>
       <output id="dbdef-er-zoom-level">100%</output>
       <button type="button" data-er-action="zoom-in">拡大</button>
       <button type="button" data-er-action="fit">全体表示</button>
+      <button type="button" data-er-action="maximize" aria-controls="er-diagram"
+        aria-pressed="false">最大化</button>
     </div>
     <div class="er-diagram-frame">
       <div id="dbdef-er-viewer" class="er-viewer"></div>
@@ -252,6 +263,7 @@ const pageHtml = `<!doctype html>
   <script id="dbdef-er-graph" type="application/json">${JSON.stringify(graph)}</script>
   <script>${viewerScript}</script>
   <script>${detailsScript}</script>
+  <script>${maximizeScript}</script>
 </body>
 </html>`;
 
@@ -274,7 +286,7 @@ before(async () => {
     request.continue();
   });
   await page.setContent(pageHtml, { waitUntil: "load" });
-  await page.waitForFunction(() => Boolean(window.dbdefErViewer));
+  await page.waitForFunction(() => Boolean(window.dbdefErViewer && window.dbdefErMaximize));
   assert.ok(requests.every((url) => url.startsWith("data:")));
 });
 
@@ -546,6 +558,65 @@ test("pans by dragging and fits the complete graph", async () => {
   assert.notEqual(fitted.x, dragged.x);
 });
 
+test("maximizes the diagram in-page and restores focus with Escape", async () => {
+  const maximized = await page.evaluate(() => {
+    const focusTarget = document.querySelector('[data-er-mode="keys"]');
+    focusTarget.focus();
+    const viewer = document.querySelector("#dbdef-er-viewer");
+    window.__maximizeEvents = [];
+    viewer.addEventListener("dbdef:er-maximize-change", (event) => {
+      window.__maximizeEvents.push({ ...event.detail });
+    });
+    window.dbdefErViewer.setViewport({ scale: 1.25, x: 18, y: 27 });
+    window.dbdefErMaximize.maximize();
+    return {
+      sectionClass: document.querySelector("#er-diagram").className,
+      bodyClass: document.body.className,
+      pressed: document.querySelector('[data-er-action="maximize"]').ariaPressed,
+      label: document.querySelector('[data-er-action="maximize"]').ariaLabel,
+      text: document.querySelector('[data-er-action="maximize"]').textContent,
+      position: getComputedStyle(document.querySelector("#er-diagram")).position,
+      viewport: window.dbdefErViewer.getState().viewport,
+      active: document.activeElement.getAttribute("data-er-action"),
+    };
+  });
+  assert.match(maximized.sectionClass, /\ber-is-maximized\b/);
+  assert.match(maximized.bodyClass, /\ber-diagram-is-maximized\b/);
+  assert.equal(maximized.pressed, "true");
+  assert.equal(
+    await page.$eval('[data-er-action="maximize"]', (button) => button.getAttribute("aria-controls")),
+    "er-diagram",
+  );
+  assert.equal(maximized.label, "ER図を通常表示に戻す");
+  assert.equal(maximized.text, "元に戻す");
+  assert.equal(maximized.position, "fixed");
+  assert.deepEqual(maximized.viewport, { scale: 1.25, x: 18, y: 27 });
+  assert.equal(maximized.active, "maximize");
+
+  await page.keyboard.press("Escape");
+  const restored = await page.evaluate(() => ({
+    sectionClass: document.querySelector("#er-diagram").className,
+    bodyClass: document.body.className,
+    pressed: document.querySelector('[data-er-action="maximize"]').ariaPressed,
+    label: document.querySelector('[data-er-action="maximize"]').ariaLabel,
+    text: document.querySelector('[data-er-action="maximize"]').textContent,
+    active: document.activeElement.dataset.erMode,
+    events: window.__maximizeEvents,
+    viewport: window.dbdefErViewer.getState().viewport,
+  }));
+  assert.doesNotMatch(restored.sectionClass, /\ber-is-maximized\b/);
+  assert.doesNotMatch(restored.bodyClass, /\ber-diagram-is-maximized\b/);
+  assert.equal(restored.pressed, "false");
+  assert.equal(restored.label, "ER図を最大化");
+  assert.equal(restored.text, "最大化");
+  assert.equal(restored.active, "keys");
+  assert.deepEqual(restored.events, [
+    { maximized: true, reason: "api" },
+    { maximized: false, reason: "escape" },
+  ]);
+  assert.deepEqual(restored.viewport, { scale: 1.25, x: 18, y: 27 });
+});
+
 test("publishes stable node-coordinate and edge-redraw boundaries", async () => {
   const result = await page.evaluate(() => {
     const viewer = document.querySelector("#dbdef-er-viewer");
@@ -580,14 +651,20 @@ test("publishes stable node-coordinate and edge-redraw boundaries", async () => 
 });
 
 test("keeps the static SVG fallback for print and disabled JavaScript", async () => {
+  await page.evaluate(() => window.dbdefErMaximize.maximize());
   await page.emulateMediaType("print");
   const printDisplay = await page.evaluate(() => ({
     fallback: getComputedStyle(document.querySelector(".er-diagram-fallback")).display,
     viewer: getComputedStyle(document.querySelector(".er-viewer")).display,
+    section: getComputedStyle(document.querySelector("#er-diagram")).position,
+    bodyOverflow: getComputedStyle(document.body).overflow,
   }));
   assert.equal(printDisplay.fallback, "block");
   assert.equal(printDisplay.viewer, "none");
+  assert.equal(printDisplay.section, "static");
+  assert.equal(printDisplay.bodyOverflow, "visible");
   await page.emulateMediaType("screen");
+  await page.evaluate(() => window.dbdefErMaximize.restore());
 
   const noScriptPage = await browser.newPage();
   await noScriptPage.setJavaScriptEnabled(false);

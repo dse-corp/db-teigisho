@@ -56,7 +56,7 @@ GitHub Copilotは既存の `.agents/skills/manage-db-definitions` に加え、�
 
 `dbdef build` は次のファイルを出力します。
 
-- `<入力名>.html`: ズーム・パン・全体表示と表示モード切り替えができるER図、テーブル一覧、各定義を検索・印刷できる自己完結HTML
+- `<入力名>.html`: ズーム・パン・表示モード切り替えと詳細パネルを備えたER図、テーブル一覧、各定義を検索・印刷できる自己完結HTML
 - `<入力名>.xlsx`: 文書情報、テーブル一覧、レンダリング済みER図、各テーブル、ビュー、ストアドプロシージャの各シート
 - `<入力名>.pdf`: 表紙、レンダリング済みER図、テーブル一覧、各定義を収録した配布・レビュー用PDF
 - `<入力名>.mmd`: FK制約から推論したMermaid ER Diagramコード
@@ -70,8 +70,11 @@ ER図はYAMLに定義されたFKから生成します。`npm ci`で固定され�
 導入すると、外部CDNなしでSVG/PNGを生成します。HTMLでは埋め込みグラフデータからER図を
 描画し、「全カラム」「PK・FKのみ」「テーブルのみ」の切り替え、ホイールまたはボタンでの
 ズーム、背景ドラッグでのパン、テーブルのドラッグによる配置変更、「全体表示」を利用できます。
-倍率は5%から300%の範囲です。変更した配置は同じブラウザの`localStorage`へ保存され、再読み込み
-時に復元されます。「配置をリセット」で保存済み配置を破棄して初期配置へ戻せます。
+テーブルまたはカラムを選択すると、インデックス、外部キー、制約、defaultを含む読み取り専用の
+詳細パネルを表示します。矢印キーで選択候補を移動し、EnterまたはSpaceで選択、Escapeまたは
+閉じるボタンで閉じられます。倍率は5%から300%の範囲です。変更した配置は同じブラウザの
+`localStorage`へ保存され、再読み込み時に復元されます。「配置をリセット」で保存済み配置を
+破棄して初期配置へ戻せます。
 HTMLはランタイムをすべて同梱するため、`file:` URLかつオフラインで動作します。
 JavaScriptが無効な場合と印刷時には、埋め込み済みの静的SVGを表示します。
 PDFとXLSXには従来どおり全カラム表示を掲載します。参照元FK列がすべてNOT NULLなら親端を必須
@@ -82,8 +85,9 @@ PDFとXLSXには従来どおり全カラム表示を掲載します。参照元F
 
 自己完結HTMLには、`<script id="dbdef-er-graph" type="application/json">` として
 `format_version: "1.0"` のERグラフデータも埋め込みます。`tables` とその `columns`、
-`relationships` はYAMLの定義順を維持し、各カラムの `key_roles`（`PK`、`UK`、`FK`）、
-複合FKの `column_pairs`、両端のcardinality、`identifying` / `non_identifying` を収録します。
+`relationships` はYAMLの定義順を維持し、各カラムの制約と `key_roles`（`PK`、`UK`、`FK`）、
+各テーブルの `indexes` と `foreign_keys`、複合FKの `column_pairs`、両端のcardinality、
+`identifying` / `non_identifying` を収録します。
 ブラウザでは要素の `textContent` を `JSON.parse` して取得できます。Pythonから同じ契約を
 利用する場合は `db_teigisho.er_graph.build_er_graph` を呼び出します。
 
@@ -108,9 +112,10 @@ PDFとXLSXには従来どおり全カラム表示を掲載します。参照元F
 
 ビューア要素 `#dbdef-er-viewer` は
 `dbdef:er-view-change`、`dbdef:er-node-position-change`、
-`dbdef:er-edges-redrawn` の各`CustomEvent`を発火します。ノードDOMには
-`data-table-id`、エッジDOMには`data-relationship-id`があり、詳細パネルやDnDは
-これらを使ってビューア内部と重複せず接続できます。
+`dbdef:er-edges-redrawn`、`dbdef:er-selection-change` の各`CustomEvent`を発火します。
+ノードDOMには `data-table-id`、カラム行には `data-column-id`、エッジDOMには
+`data-relationship-id`があります。選択対象は `aria-selected` と
+`aria-controls="dbdef-er-details"` で単一の詳細パネルへ関連付けられます。
 
 配置操作は`window.dbdefErLayout` v1.0として分離され、`save()`、`restore()`、`reset()`、
 `getStorageKey()`、`getGraphFingerprint()`を公開します。保存キーは文書・データベース識別情報

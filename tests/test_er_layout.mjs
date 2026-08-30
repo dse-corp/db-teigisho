@@ -16,6 +16,14 @@ const layoutStyles = await readFile(
   new URL("../src/db_teigisho/templates/er_layout.css", import.meta.url),
   "utf8",
 );
+const detailsScript = await readFile(
+  new URL("../src/db_teigisho/templates/er_details.js", import.meta.url),
+  "utf8",
+);
+const detailsStyles = await readFile(
+  new URL("../src/db_teigisho/templates/er_details.css", import.meta.url),
+  "utf8",
+);
 
 const baseGraph = {
   format_version: "1.0",
@@ -83,7 +91,22 @@ const baseGraph = {
   ],
 };
 
-function pageHtml({ graph = baseGraph, definitionId, beforeLayout = "" }) {
+function pageHtml({
+  graph = baseGraph,
+  definitionId,
+  beforeLayout = "",
+  withDetails = false,
+}) {
+  const detailPanel = withDetails
+    ? `<aside id="dbdef-er-details" class="er-detail-panel" aria-live="polite"
+        aria-labelledby="dbdef-er-details-title" hidden>
+        <button id="dbdef-er-details-close" type="button">Close</button>
+        <p id="dbdef-er-details-kind"></p>
+        <h3 id="dbdef-er-details-title"></h3>
+        <div id="dbdef-er-details-body"></div>
+      </aside>`
+    : "";
+  const detailScript = withDetails ? `<script>${detailsScript}</script>` : "";
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -93,6 +116,7 @@ function pageHtml({ graph = baseGraph, definitionId, beforeLayout = "" }) {
     .er-viewer { width: 100%; height: 100%; user-select: none; }
     .er-canvas { width: 100%; height: 100%; }
     ${layoutStyles}
+    ${withDetails ? detailsStyles : ""}
   </style>
 </head>
 <body>
@@ -110,10 +134,12 @@ function pageHtml({ graph = baseGraph, definitionId, beforeLayout = "" }) {
     </div>
     <div class="er-diagram-frame">
       <div id="dbdef-er-viewer" class="er-viewer"></div>
+      ${detailPanel}
     </div>
   </section>
   <script id="dbdef-er-graph" type="application/json">${JSON.stringify(graph)}</script>
   <script>${viewerScript}</script>
+  ${detailScript}
   <script>${beforeLayout}</script>
   <script>${layoutScript}</script>
 </body>
@@ -180,6 +206,7 @@ test("drags a node, redraws its edge during movement, and restores the saved lay
     x: before.position.x + 140,
     y: before.position.y + 90,
   });
+
   assert.notEqual(during.edge, before.edge);
   assert.equal(during.dragging, true);
 
@@ -199,6 +226,62 @@ test("drags a node, redraws its edge during movement, and restores the saved lay
   assert.deepEqual(
     await restoredPage.evaluate(() => window.dbdefErViewer.getNodePosition("table_2")),
     during.position,
+  );
+  await restoredPage.close();
+});
+
+test("keeps details selection usable while dragging and restoring node layouts", async () => {
+  const definitionId = "details-and-layout";
+  const page = await openPage({ definitionId, withDetails: true });
+  await page.click('[data-table-id="table_1"] .er-node-physical');
+  const afterSelection = await page.evaluate(() => ({
+    detailTitle: document.querySelector("#dbdef-er-details-title").textContent,
+    status: document.querySelector("#dbdef-er-layout-status").textContent,
+    saved: localStorage.getItem(window.dbdefErLayout.getStorageKey()),
+  }));
+  assert.deepEqual(afterSelection, {
+    detailTitle: "customers / Customers",
+    status: "",
+    saved: null,
+  });
+
+  const before = await page.evaluate(() => window.dbdefErViewer.getNodePosition("table_2"));
+
+  await dragNode(page, "table_2", 120, 70);
+  await page.mouse.up();
+  const afterDrag = await page.evaluate(() => ({
+    position: window.dbdefErViewer.getNodePosition("table_2"),
+    panelHidden: document.querySelector("#dbdef-er-details").hidden,
+    detailTitle: document.querySelector("#dbdef-er-details-title").textContent,
+    selected: document.querySelector(
+      '[data-table-id="table_2"] [data-er-detail-target="table"]',
+    ).getAttribute("aria-selected"),
+    saved: JSON.parse(localStorage.getItem(window.dbdefErLayout.getStorageKey()))
+      .positions.orders,
+  }));
+  assert.deepEqual(afterDrag.position, { x: before.x + 120, y: before.y + 70 });
+  assert.deepEqual(afterDrag.saved, afterDrag.position);
+  assert.equal(afterDrag.panelHidden, false);
+  assert.equal(afterDrag.detailTitle, "orders / Orders");
+  assert.equal(afterDrag.selected, "true");
+
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("Enter");
+  assert.equal(
+    await page.$eval("#dbdef-er-details-title", (element) => element.textContent),
+    "customer_id / Customer ID",
+  );
+  await page.close();
+
+  const restoredPage = await openPage({ definitionId, withDetails: true });
+  assert.deepEqual(
+    await restoredPage.evaluate(() => window.dbdefErViewer.getNodePosition("table_2")),
+    afterDrag.position,
+  );
+  await restoredPage.click('[data-table-id="table_2"] .er-node-physical');
+  assert.equal(
+    await restoredPage.$eval("#dbdef-er-details-title", (element) => element.textContent),
+    "orders / Orders",
   );
   await restoredPage.close();
 });

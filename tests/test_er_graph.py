@@ -49,6 +49,12 @@ def test_builds_a_deterministic_ordered_graph_contract(
         ColumnKeyRole.UNIQUE_KEY,
     )
     assert graph.tables[1].columns[1].key_roles == (ColumnKeyRole.FOREIGN_KEY,)
+    assert graph.tables[0].columns[0].unique is True
+    assert graph.tables[0].columns[0].primary_key is True
+    assert graph.tables[0].indexes[0].name == "idx_customers_email"
+    assert graph.tables[0].indexes[0].columns[0].name == "email"
+    assert graph.tables[1].foreign_keys[0].columns == ("customer_id",)
+    assert graph.tables[1].foreign_keys[0].referenced_table == "customers"
 
     relationship = graph.relationships[0]
     assert relationship.id == "relationship_1"
@@ -151,6 +157,14 @@ def test_represents_composite_self_and_cyclic_relationship_inference(
     assert cyclic_reference.child_cardinality is Cardinality.EXACTLY_ONE
     assert cyclic_reference.relationship_type is RelationshipType.NON_IDENTIFYING
     assert len(composite.column_pairs) == 2
+    assert graph.tables[1].foreign_keys[0].columns == (
+        "customer_id",
+        "customer_email",
+    )
+    assert graph.tables[1].foreign_keys[0].referenced_columns == (
+        "customer_id",
+        "email",
+    )
     assert composite.parent_cardinality is Cardinality.EXACTLY_ONE
     assert composite.child_cardinality is Cardinality.EXACTLY_ONE
     assert composite.relationship_type is RelationshipType.IDENTIFYING

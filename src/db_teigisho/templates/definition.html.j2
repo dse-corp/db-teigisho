@@ -87,6 +87,7 @@
       fill: var(--muted); paint-order: stroke; stroke: var(--surface); stroke-width: 5px;
       stroke-linejoin: round; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace;
     }
+{% include "er_details.css" %}
 {% include "er_layout.css" %}
     .er-diagram-image { display: block; width: 100%; min-width: 720px; height: auto; }
     .er-diagram-image[hidden] { display: none; }
@@ -157,6 +158,14 @@
       </div>
       <div class="er-diagram-frame" tabindex="0" aria-label="ER図。テーブルをドラッグして配置変更、背景をドラッグして移動、ホイールで拡大縮小できます">
         <div id="dbdef-er-viewer" class="er-viewer"></div>
+        <aside id="dbdef-er-details" class="er-detail-panel" aria-live="polite"
+          aria-labelledby="dbdef-er-details-title" hidden>
+          <button id="dbdef-er-details-close" class="er-detail-close" type="button"
+            aria-label="詳細パネルを閉じる">閉じる</button>
+          <p id="dbdef-er-details-kind" class="er-detail-kind"></p>
+          <h3 id="dbdef-er-details-title"></h3>
+          <div id="dbdef-er-details-body"></div>
+        </aside>
         <img class="er-diagram-fallback er-diagram-image" data-er-mode="all" src="{{ er_diagram_images["all"] }}" alt="全カラムを表示した静的ER図">
         <img class="er-diagram-fallback er-diagram-image" data-er-mode="keys" src="{{ er_diagram_images["keys"] }}" alt="PK・FKのみを表示した静的ER図" hidden>
         <img class="er-diagram-fallback er-diagram-image" data-er-mode="tables" src="{{ er_diagram_images["tables"] }}" alt="テーブルのみを表示した静的ER図" hidden>
@@ -243,6 +252,7 @@
   <script id="dbdef-er-graph" type="application/json">{{ er_graph_json | safe }}</script>
   <script>
 {% include "er_viewer.js" %}
+{% include "er_details.js" %}
   </script>
   <script>
 {% include "er_layout.js" %}

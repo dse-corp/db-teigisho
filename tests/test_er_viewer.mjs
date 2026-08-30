@@ -8,6 +8,10 @@ const viewerScript = await readFile(
   new URL("../src/db_teigisho/templates/er_viewer.js", import.meta.url),
   "utf8",
 );
+const detailsScript = await readFile(
+  new URL("../src/db_teigisho/templates/er_details.js", import.meta.url),
+  "utf8",
+);
 
 const graph = {
   format_version: "1.0",
@@ -16,7 +20,21 @@ const graph = {
       id: "table_1",
       physical_name: "customers",
       logical_name: "顧客",
-      description: null,
+      description: "顧客情報を管理する日本語の長い説明。".repeat(12),
+      indexes: [
+        {
+          name: "uq_customers_identity",
+          type: "btree",
+          unique: true,
+          columns: [
+            { name: "customer_id", order: "ASC" },
+            { name: "name", order: "DESC" },
+          ],
+          include_columns: [],
+          where: null,
+        },
+      ],
+      foreign_keys: [],
       columns: [
         {
           id: "table_1_column_1",
@@ -25,9 +43,11 @@ const graph = {
           data_type: "uuid",
           length: null,
           scale: null,
-          default: null,
+          default: "",
           not_null: true,
-          description: null,
+          unique: true,
+          primary_key: true,
+          description: "顧客を一意に識別する。",
           key_roles: ["PK", "UK"],
         },
         {
@@ -39,6 +59,8 @@ const graph = {
           scale: null,
           default: null,
           not_null: true,
+          unique: false,
+          primary_key: false,
           description: null,
           key_roles: [],
         },
@@ -49,6 +71,18 @@ const graph = {
       physical_name: "orders",
       logical_name: "受注",
       description: null,
+      indexes: [],
+      foreign_keys: [
+        {
+          name: "fk_orders_customers",
+          columns: ["customer_id", "amount"],
+          referenced_table: "customers",
+          referenced_columns: ["customer_id", "name"],
+          on_update: "NO ACTION",
+          on_delete: "RESTRICT",
+          deferrable: false,
+        },
+      ],
       columns: [
         {
           id: "table_2_column_1",
@@ -59,6 +93,8 @@ const graph = {
           scale: null,
           default: null,
           not_null: true,
+          unique: false,
+          primary_key: true,
           description: null,
           key_roles: ["PK"],
         },
@@ -71,6 +107,8 @@ const graph = {
           scale: null,
           default: null,
           not_null: true,
+          unique: false,
+          primary_key: false,
           description: null,
           key_roles: ["FK"],
         },
@@ -83,6 +121,8 @@ const graph = {
           scale: 2,
           default: 0,
           not_null: true,
+          unique: false,
+          primary_key: false,
           description: null,
           key_roles: [],
         },
@@ -99,6 +139,10 @@ const graph = {
         {
           parent_column_id: "table_1_column_1",
           child_column_id: "table_2_column_2",
+        },
+        {
+          parent_column_id: "table_1_column_2",
+          child_column_id: "table_2_column_3",
         },
       ],
       parent_cardinality: "exactly_one",
@@ -118,6 +162,11 @@ const pageHtml = `<!doctype html>
   <style>
     .er-diagram-frame { position: relative; width: 960px; height: 520px; overflow: hidden; }
     .er-viewer { width: 100%; height: 100%; }
+    .er-canvas { display: block; width: 100%; height: 100%; }
+    .er-detail-panel {
+      position: absolute; inset: 12px 12px auto auto; overflow: auto;
+      width: 360px; max-height: 200px;
+    }
     .er-diagram-fallback { display: block; }
     .er-interactive-ready .er-diagram-fallback { display: none; }
     @media print {
@@ -139,17 +188,26 @@ const pageHtml = `<!doctype html>
     </div>
     <div class="er-diagram-frame">
       <div id="dbdef-er-viewer" class="er-viewer"></div>
+      <aside id="dbdef-er-details" class="er-detail-panel" aria-live="polite"
+        aria-labelledby="dbdef-er-details-title" hidden>
+        <button id="dbdef-er-details-close" type="button">閉じる</button>
+        <p id="dbdef-er-details-kind"></p>
+        <h3 id="dbdef-er-details-title"></h3>
+        <div id="dbdef-er-details-body"></div>
+      </aside>
       <img class="er-diagram-fallback" alt="静的ER図"
         src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3C/svg%3E">
     </div>
   </section>
   <script id="dbdef-er-graph" type="application/json">${JSON.stringify(graph)}</script>
   <script>${viewerScript}</script>
+  <script>${detailsScript}</script>
 </body>
 </html>`;
 
 let browser;
 let page;
+const pageErrors = [];
 
 before(async () => {
   browser = await puppeteer.launch({
@@ -157,6 +215,7 @@ before(async () => {
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
   });
   page = await browser.newPage();
+  page.on("pageerror", (error) => pageErrors.push(String(error)));
   await page.setViewport({ width: 1200, height: 800 });
   await page.setRequestInterception(true);
   const requests = [];
@@ -174,6 +233,7 @@ after(async () => {
 });
 
 test("renders graph data and switches all three display modes", async () => {
+  assert.deepEqual(pageErrors, []);
   assert.equal(await page.$$eval(".er-node", (nodes) => nodes.length), 2);
   assert.equal(await page.$$eval(".er-edge", (edges) => edges.length), 1);
   assert.equal(await page.$$eval(".er-column-row", (rows) => rows.length), 5);
@@ -187,6 +247,148 @@ test("renders graph data and switches all three display modes", async () => {
   assert.equal(
     await page.evaluate(() => window.dbdefErViewer.getState().mode),
     "tables",
+  );
+});
+
+test("opens table and column details by mouse with exact special values", async () => {
+  await page.evaluate(() => window.dbdefErViewer.setMode("all"));
+  await page.click('[data-table-id="table_1"] .er-node-physical');
+  assert.deepEqual(pageErrors, []);
+  const tableDetails = await page.evaluate(() => ({
+    hidden: document.querySelector("#dbdef-er-details").hidden,
+    kind: document.querySelector("#dbdef-er-details-kind").textContent,
+    title: document.querySelector("#dbdef-er-details-title").textContent,
+    body: document.querySelector("#dbdef-er-details-body").textContent,
+    selected: document.querySelector('[data-table-id="table_1"]').classList.contains(
+      "er-detail-table-selected",
+    ),
+  }));
+  assert.equal(tableDetails.hidden, false);
+  assert.equal(tableDetails.kind, "テーブル詳細");
+  assert.equal(tableDetails.title, "customers / 顧客");
+  assert.match(tableDetails.body, /カラム数\s*2/);
+  assert.match(tableDetails.body, /uq_customers_identity/);
+  assert.match(tableDetails.body, /customer_id ASC, name DESC/);
+  assert.match(tableDetails.body, /顧客情報を管理する日本語の長い説明。/);
+  assert.equal(tableDetails.selected, true);
+  await page.evaluate(() => window.dbdefErViewer.setViewport({ scale: 1 }));
+  const panel = await page.$("#dbdef-er-details");
+  const panelBox = await panel.boundingBox();
+  await page.mouse.move(panelBox.x + panelBox.width / 2, panelBox.y + panelBox.height / 2);
+  await page.mouse.wheel({ deltaY: 120 });
+  assert.equal(
+    await page.evaluate(() => window.dbdefErViewer.getState().viewport.scale),
+    1,
+  );
+
+  await page.click('[data-column-id="table_1_column_1"] .er-column-name');
+  const columnDetails = await page.evaluate(() => ({
+    kind: document.querySelector("#dbdef-er-details-kind").textContent,
+    title: document.querySelector("#dbdef-er-details-title").textContent,
+    body: document.querySelector("#dbdef-er-details-body").textContent,
+    selected: document.querySelector(
+      '[data-column-id="table_1_column_1"]',
+    ).getAttribute("aria-selected"),
+  }));
+  assert.equal(columnDetails.kind, "カラム詳細");
+  assert.equal(columnDetails.title, "customer_id / 顧客ID");
+  assert.match(columnDetails.body, /Default\s*""/);
+  assert.match(columnDetails.body, /NN\s*あり/);
+  assert.match(columnDetails.body, /Unique\s*あり/);
+  assert.match(columnDetails.body, /PK\s*あり/);
+  assert.equal(columnDetails.selected, "true");
+
+  await page.click('[data-table-id="table_2"] .er-node-physical');
+  assert.match(
+    await page.$eval("#dbdef-er-details-body", (element) => element.textContent),
+    /fk_orders_customers.*customer_id, amount.*customers\(customer_id, name\)/s,
+  );
+  assert.equal(
+    await page.$eval(
+      '[data-column-id="table_1_column_1"]',
+      (element) => element.getAttribute("aria-selected"),
+    ),
+    "false",
+  );
+  assert.equal(
+    await page.$eval(
+      '[data-table-id="table_2"] [data-er-detail-target="table"]',
+      (element) => element.getAttribute("tabindex"),
+    ),
+    "0",
+  );
+  assert.equal(await page.evaluate(() => document.activeElement.dataset.tableId), "table_2");
+});
+
+test("supports roving keyboard selection, ARIA linkage, Escape, and close", async () => {
+  await page.evaluate(() => window.dbdefErViewer.setMode("all"));
+  await page.$eval(
+    '[data-table-id="table_1"] [data-er-detail-target="table"]',
+    (target) => target.focus(),
+  );
+  await page.keyboard.press("ArrowDown");
+  assert.equal(
+    await page.evaluate(() => document.activeElement.dataset.columnId),
+    "table_1_column_1",
+  );
+  await page.keyboard.press("Enter");
+  const aria = await page.evaluate(() => {
+    const target = document.activeElement;
+    return {
+      role: target.getAttribute("role"),
+      selected: target.getAttribute("aria-selected"),
+      controls: target.getAttribute("aria-controls"),
+      panelRole: document.querySelector("#dbdef-er-details").getAttribute("role"),
+    };
+  });
+  assert.deepEqual(aria, {
+    role: "option",
+    selected: "true",
+    controls: "dbdef-er-details",
+    panelRole: "region",
+  });
+
+  await page.keyboard.press("Escape");
+  assert.equal(await page.$eval("#dbdef-er-details", (panel) => panel.hidden), true);
+  assert.equal(
+    await page.$eval(
+      '[data-column-id="table_1_column_1"]',
+      (target) => target.getAttribute("aria-selected"),
+    ),
+    "false",
+  );
+
+  await page.keyboard.press("Enter");
+  await page.click("#dbdef-er-details-close");
+  assert.equal(await page.$eval("#dbdef-er-details", (panel) => panel.hidden), true);
+  assert.equal(
+    await page.evaluate(() => document.activeElement.dataset.columnId),
+    "table_1_column_1",
+  );
+});
+
+test("keeps table selection and removes hidden columns from selection in table-only mode", async () => {
+  await page.evaluate(() => window.dbdefErViewer.setMode("all"));
+  await page.click('[data-table-id="table_1"] .er-node-physical');
+  await page.click('[data-er-mode="tables"]');
+  assert.equal(await page.$eval("#dbdef-er-details", (panel) => panel.hidden), false);
+  assert.equal(
+    await page.$eval("#dbdef-er-details-title", (title) => title.textContent),
+    "customers / 顧客",
+  );
+  assert.equal(await page.$$eval("[data-column-id]", (rows) => rows.length), 0);
+
+  await page.evaluate(() => window.dbdefErViewer.setMode("all"));
+  await page.click('[data-column-id="table_1_column_2"] .er-column-name');
+  await page.click('[data-er-mode="tables"]');
+  assert.equal(await page.$eval("#dbdef-er-details", (panel) => panel.hidden), true);
+  assert.equal(
+    await page.$$eval('[data-er-detail-target="column"]', (targets) => targets.length),
+    0,
+  );
+  assert.equal(
+    await page.$$eval('[data-er-detail-target="table"][tabindex="0"]', (targets) => targets.length),
+    1,
   );
 });
 

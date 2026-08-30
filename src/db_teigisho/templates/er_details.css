@@ -1,0 +1,47 @@
+[data-er-detail-target] { cursor: pointer; outline: none; }
+.er-node-header[data-er-detail-target]:focus-visible,
+.er-detail-table-selected .er-node-header {
+  stroke: #f0a202; stroke-width: 4; vector-effect: non-scaling-stroke;
+}
+.er-column-selection-background { fill: transparent; }
+.er-column-row[data-er-detail-target]:hover .er-column-selection-background,
+.er-column-row[data-er-detail-target]:focus-visible .er-column-selection-background {
+  fill: #dcecf6;
+}
+.er-column-row.er-detail-column-selected .er-column-selection-background {
+  fill: #b9dcef; stroke: #0b668f; stroke-width: 2; vector-effect: non-scaling-stroke;
+}
+.er-detail-panel {
+  position: absolute; z-index: 2; top: 12px; right: 12px; overflow: auto;
+  width: min(390px, calc(100% - 24px)); max-height: calc(100% - 24px); padding: 18px;
+  border: 1px solid #7890a0; border-radius: 6px; background: #fff;
+  box-shadow: 0 8px 28px rgb(23 32 42 / 24%); cursor: default; user-select: text;
+}
+.er-detail-panel[hidden] { display: none; }
+.er-detail-panel h3 { margin: 0 36px 14px 0; overflow-wrap: anywhere; }
+.er-detail-panel h4 { margin: 20px 0 8px; color: var(--brand); }
+.er-detail-kind {
+  margin: 0 36px 2px 0; color: var(--muted); font-size: 12px; font-weight: 700;
+}
+.er-detail-close {
+  position: absolute; top: 10px; right: 10px; border: 0; border-radius: 4px; padding: 5px 8px;
+  color: var(--brand); background: transparent; cursor: pointer; font: inherit;
+}
+.er-detail-close:hover { background: var(--accent); }
+.er-detail-close:focus-visible { outline: 3px solid #7bb7dc; outline-offset: 1px; }
+.er-detail-fields { margin: 0; }
+.er-detail-fields div {
+  display: grid; grid-template-columns: 92px minmax(0, 1fr); border-top: 1px solid var(--line);
+}
+.er-detail-fields dt, .er-detail-fields dd {
+  margin: 0; padding: 6px 4px; overflow-wrap: anywhere;
+}
+.er-detail-fields dt { color: var(--muted); font-weight: 650; }
+.er-detail-list { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.er-detail-list li { padding: 10px; border: 1px solid var(--line); border-radius: 4px; }
+.er-detail-list .er-detail-fields { margin-top: 6px; }
+.er-detail-name { font-weight: 700; overflow-wrap: anywhere; }
+.er-detail-empty { margin: 0; color: var(--muted); font-style: italic; }
+@media print {
+  .er-detail-panel { display: none !important; }
+}

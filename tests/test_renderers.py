@@ -70,6 +70,11 @@ def test_renders_interactive_er_viewer_controls_and_extension_contract(
     assert "window.dbdefErLayout" in html
     assert "dbdef:er-node-position-change" in html
     assert "dbdef:er-edges-redrawn" in html
+    assert 'id="dbdef-er-details"' in html
+    assert 'id="dbdef-er-details-close"' in html
+    assert "dbdef:er-selection-change" in html
+    assert "er_details.js" not in html
+    assert "er_details.css" not in html
     assert "@media print" in html
     assert re.search(r'(?:src|href)="https?://', html) is None
 

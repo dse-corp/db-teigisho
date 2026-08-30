@@ -60,8 +60,40 @@ class GraphColumn(GraphModel):
     scale: int | None
     default: ScalarDefault
     not_null: bool
+    unique: bool
+    primary_key: bool
     description: str | None
     key_roles: tuple[ColumnKeyRole, ...]
+
+
+class GraphIndexColumn(GraphModel):
+    """An ordered column in an index shown by the ER details panel."""
+
+    name: str
+    order: Literal["ASC", "DESC"]
+
+
+class GraphIndex(GraphModel):
+    """Read-only index metadata nested under a graph table."""
+
+    name: str
+    type: str | None
+    unique: bool
+    columns: tuple[GraphIndexColumn, ...]
+    include_columns: tuple[str, ...]
+    where: str | None
+
+
+class GraphForeignKey(GraphModel):
+    """Read-only foreign-key metadata nested under a graph table."""
+
+    name: str
+    columns: tuple[str, ...]
+    referenced_table: str
+    referenced_columns: tuple[str, ...]
+    on_update: ForeignKeyAction
+    on_delete: ForeignKeyAction
+    deferrable: bool
 
 
 class GraphTable(GraphModel):
@@ -72,6 +104,8 @@ class GraphTable(GraphModel):
     logical_name: str
     description: str | None
     columns: tuple[GraphColumn, ...]
+    indexes: tuple[GraphIndex, ...]
+    foreign_keys: tuple[GraphForeignKey, ...]
 
 
 class GraphColumnPair(GraphModel):
@@ -181,6 +215,8 @@ def _graph_tables(definition: DatabaseDefinition) -> tuple[GraphTable, ...]:
                 scale=column.scale,
                 default=column.default,
                 not_null=column.not_null,
+                unique=column.unique,
+                primary_key=column.primary_key,
                 description=column.description,
                 key_roles=_column_key_roles(
                     table, column.physical_name, foreign_key_columns
@@ -195,6 +231,32 @@ def _graph_tables(definition: DatabaseDefinition) -> tuple[GraphTable, ...]:
                 logical_name=table.logical_name,
                 description=table.description,
                 columns=columns,
+                indexes=tuple(
+                    GraphIndex(
+                        name=index.name,
+                        type=index.type,
+                        unique=index.unique,
+                        columns=tuple(
+                            GraphIndexColumn(name=column.name, order=column.order)
+                            for column in index.columns
+                        ),
+                        include_columns=tuple(index.include_columns),
+                        where=index.where,
+                    )
+                    for index in table.indexes
+                ),
+                foreign_keys=tuple(
+                    GraphForeignKey(
+                        name=foreign_key.name,
+                        columns=tuple(foreign_key.columns),
+                        referenced_table=foreign_key.referenced_table,
+                        referenced_columns=tuple(foreign_key.referenced_columns),
+                        on_update=foreign_key.on_update,
+                        on_delete=foreign_key.on_delete,
+                        deferrable=foreign_key.deferrable,
+                    )
+                    for foreign_key in table.foreign_keys
+                ),
             )
         )
     return tuple(tables)

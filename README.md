@@ -32,8 +32,8 @@ Workflow `.github/workflows/publish-python.yml`、Environment `pypi`を登録し
 登録後はバージョンと同じタグを`origin`へpushすると、品質検査後にPyPIへ公開されます。
 
 ```bash
-git tag v0.1.0
-git push origin v0.1.0
+git tag v0.1.1
+git push origin v0.1.1
 ```
 
 ## セットアップ

@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling>=1.27"]
+requires = ["hatchling>=1.32,<2"]
 build-backend = "hatchling.build"
 
 [project]
 name = "db-teigisho"
-version = "0.1.0"
+version = "0.1.1"
 description = "YAML-first database definition validation and publishing"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -23,12 +23,12 @@ classifiers = [
   "Topic :: Database",
 ]
 dependencies = [
-  "Jinja2>=3.1,<4",
-  "openpyxl>=3.1,<4",
-  "Pillow>=11.2,<12",
-  "pydantic>=2.11,<3",
-  "PyYAML>=6.0,<7",
-  "reportlab>=4.4,<5",
+  "Jinja2>=3.1.6,<4",
+  "openpyxl>=3.1.5,<4",
+  "Pillow>=12.3,<13",
+  "pydantic>=2.13.5,<3",
+  "PyYAML>=6.0.3,<7",
+  "reportlab>=5.0.1,<6",
 ]
 
 [project.urls]
@@ -38,14 +38,14 @@ Issues = "https://github.com/dse-corp/db-teigisho/issues"
 
 [project.optional-dependencies]
 dev = [
-  "build>=1.2,<2",
-  "mypy>=1.15,<2",
-  "pytest>=8.3,<9",
-  "pytest-cov>=6.1,<7",
-  "ruff>=0.11,<1",
-  "types-openpyxl>=3.1,<4",
-  "types-PyYAML>=6.0,<7",
-  "types-reportlab>=4.4,<5",
+  "build>=1.6,<2",
+  "mypy>=2.3,<3",
+  "pytest>=9.1,<10",
+  "pytest-cov>=7.1,<8",
+  "ruff>=0.16.5,<1",
+  "types-openpyxl>=3.1.5.20260827,<4",
+  "types-PyYAML>=6.0.12.20260815,<7",
+  "types-reportlab>=4.5.1.20260827,<5",
 ]
 
 [project.scripts]

@@ -41,6 +41,9 @@ jobs:
       - name: Test with coverage
         run: pytest
 
+      - name: Test interactive ER viewer
+        run: npm test
+
       - name: Check committed JSON Schema
         run: dbdef schema --check schemas/db-definition.schema.json
 

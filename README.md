@@ -56,7 +56,7 @@ GitHub Copilotは既存の `.agents/skills/manage-db-definitions` に加え、�
 
 `dbdef build` は次のファイルを出力します。
 
-- `<入力名>.html`: 表示モードを切り替えられるレンダリング済みER図、テーブル一覧、各定義を検索・印刷できる自己完結HTML
+- `<入力名>.html`: ズーム・パン・全体表示と表示モード切り替えができるER図、テーブル一覧、各定義を検索・印刷できる自己完結HTML
 - `<入力名>.xlsx`: 文書情報、テーブル一覧、レンダリング済みER図、各テーブル、ビュー、ストアドプロシージャの各シート
 - `<入力名>.pdf`: 表紙、レンダリング済みER図、テーブル一覧、各定義を収録した配布・レビュー用PDF
 - `<入力名>.mmd`: FK制約から推論したMermaid ER Diagramコード
@@ -67,8 +67,12 @@ PDFにはNoto Sans JPを埋め込むため、CIや閲覧端末に日本語フォ
 同梱フォントのライセンスは `src/db_teigisho/assets/OFL.txt` です。
 
 ER図はYAMLに定義されたFKから生成します。`npm ci`で固定されたMermaid CLIとPuppeteerを
-導入すると、外部CDNなしでSVG/PNGを生成します。HTMLでは「全カラム」「PK・FKのみ」
-「テーブルのみ」を切り替えられ、PDFとXLSXには全カラム表示を掲載します。参照元FK列がすべてNOT NULLなら親端を必須
+導入すると、外部CDNなしでSVG/PNGを生成します。HTMLでは埋め込みグラフデータからER図を
+描画し、「全カラム」「PK・FKのみ」「テーブルのみ」の切り替え、ホイールまたはボタンでの
+ズーム、ドラッグでのパン、「全体表示」を利用できます。倍率は5%から300%の範囲です。
+HTMLはランタイムをすべて同梱するため、`file:` URLかつオフラインで動作します。
+JavaScriptが無効な場合と印刷時には、埋め込み済みの静的SVGを表示します。
+PDFとXLSXには従来どおり全カラム表示を掲載します。参照元FK列がすべてNOT NULLなら親端を必須
 （`||`）、それ以外は任意（`|o`）とし、FKがUNIQUEまたは主キーと一致すれば子端を
 1（`||`）、それ以外は0以上の多（`o{`）とします。`ON DELETE CASCADE` またはFKが
 主キーの一部なら実線、それ以外は破線です。`--er-columns` は `all`、`keys`、`tables`
@@ -80,6 +84,31 @@ ER図はYAMLに定義されたFKから生成します。`npm ci`で固定され�
 複合FKの `column_pairs`、両端のcardinality、`identifying` / `non_identifying` を収録します。
 ブラウザでは要素の `textContent` を `JSON.parse` して取得できます。Pythonから同じ契約を
 利用する場合は `db_teigisho.er_graph.build_er_graph` を呼び出します。
+
+### HTML ERビューアの拡張API
+
+生成HTMLは `window.dbdefErViewer` にバージョン付きAPIを公開します。`getState()` /
+`setViewState()` は表示モード、ビューポート、全ノード座標を共有し、`setNodePosition()` /
+`setNodePositions()` はドラッグ操作や自動配置から座標を更新します。座標更新後は
+`redrawEdges()` が利用する同じ経路でリレーションを再描画します。
+
+後続機能向けの主な境界は次のとおりです。
+
+| 境界 | 用途 |
+| --- | --- |
+| `getGraph()` / `getState()` | 埋め込みグラフと現在のビュー状態をコピーとして取得 |
+| `setMode(mode)` / `setViewport(viewport)` / `fitToView()` | 表示モードとズーム・パン状態を更新 |
+| `getNodePosition(tableId)` / `setNodePosition(tableId, position)` | 単一ノードの座標を取得・更新 |
+| `setNodePositions(positions)` | 配置アルゴリズムや保存済み配置から複数座標を一括更新 |
+| `redrawEdges()` | 現在のノード座標とサイズから全エッジを再描画 |
+| `setEdgePathRenderer(renderer)` | エッジ経路戦略を差し替え（`null` で既定へ復帰） |
+| `screenToGraphPoint(clientX, clientY)` | ポインター座標をグラフ座標へ変換 |
+
+ビューア要素 `#dbdef-er-viewer` は
+`dbdef:er-view-change`、`dbdef:er-node-position-change`、
+`dbdef:er-edges-redrawn` の各`CustomEvent`を発火します。ノードDOMには
+`data-table-id`、エッジDOMには`data-relationship-id`があり、詳細パネルやDnDは
+これらを使ってビューア内部と重複せず接続できます。
 
 ## 自動検証
 

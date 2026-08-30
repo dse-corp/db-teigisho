@@ -41,6 +41,35 @@ def test_renders_self_contained_html(definition_file: Path, tmp_path: Path) -> N
     assert "顧客の基本情報を管理する。" in html
 
 
+def test_renders_interactive_er_viewer_controls_and_extension_contract(
+    definition_file: Path, tmp_path: Path
+) -> None:
+    document = load_definition(definition_file)
+    diagram = RenderedErDiagram(svg=b"<svg><text>static fallback</text></svg>", png=b"")
+    diagrams = {mode: diagram for mode in DEFAULT_ER_DIAGRAM_MODES}
+    output = tmp_path / "definition.html"
+
+    render_html(document, output, diagrams)
+
+    html = output.read_text(encoding="utf-8")
+    assert 'id="dbdef-er-viewer"' in html
+    assert 'data-er-action="zoom-in"' in html
+    assert 'data-er-action="zoom-out"' in html
+    assert 'data-er-action="fit"' in html
+    assert 'id="dbdef-er-zoom-level"' in html
+    assert 'class="er-diagram-fallback er-diagram-image"' in html
+    assert "static fallback" not in html
+    assert "window.dbdefErViewer" in html
+    assert "setNodePosition" in html
+    assert "setNodePositions" in html
+    assert "redrawEdges" in html
+    assert "setEdgePathRenderer" in html
+    assert "dbdef:er-node-position-change" in html
+    assert "dbdef:er-edges-redrawn" in html
+    assert "@media print" in html
+    assert re.search(r'(?:src|href)="https?://', html) is None
+
+
 def test_embeds_restorable_graph_json_without_terminating_the_script_element(
     valid_definition: dict[str, Any], tmp_path: Path
 ) -> None:

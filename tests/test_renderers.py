@@ -3,11 +3,15 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from copy import deepcopy
 from pathlib import Path
+from typing import Any
 
 from openpyxl import load_workbook
 
+from db_teigisho.diagram_render import DEFAULT_ER_DIAGRAM_MODES, RenderedErDiagram
 from db_teigisho.loader import load_definition
+from db_teigisho.models import DatabaseDefinition
 from db_teigisho.render import build_artifacts, render_html, render_pdf, render_xlsx
 
 
@@ -35,6 +39,34 @@ def test_renders_self_contained_html(definition_file: Path, tmp_path: Path) -> N
     assert ".er-diagram-image[hidden] { display: none; }" in html
     assert "カラム数" in html
     assert "顧客の基本情報を管理する。" in html
+
+
+def test_embeds_restorable_graph_json_without_terminating_the_script_element(
+    valid_definition: dict[str, Any], tmp_path: Path
+) -> None:
+    data = deepcopy(valid_definition)
+    special_value = '</script> "quoted"\n日本語 & <tag>'
+    data["tables"][0]["description"] = special_value
+    data["tables"][0]["columns"][0]["logical_name"] = special_value
+    definition = DatabaseDefinition.model_validate(data)
+    diagram = RenderedErDiagram(svg=b"<svg></svg>", png=b"")
+    diagrams = {mode: diagram for mode in DEFAULT_ER_DIAGRAM_MODES}
+    output = tmp_path / "definition.html"
+
+    render_html(definition, output, diagrams)
+
+    html = output.read_text(encoding="utf-8")
+    match = re.search(
+        r'<script id="dbdef-er-graph" type="application/json">(.*?)</script>',
+        html,
+        re.DOTALL,
+    )
+    assert match is not None
+    payload = match.group(1)
+    assert "</script>" not in payload
+    graph = json.loads(payload)
+    assert graph["tables"][0]["description"] == special_value
+    assert graph["tables"][0]["columns"][0]["logical_name"] == special_value
 
 
 def test_renders_formatted_xlsx(definition_file: Path, tmp_path: Path) -> None:

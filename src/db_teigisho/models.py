@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -36,7 +36,8 @@ class DatabaseSettings(DefinitionModel):
     collation: str | None = Field(default=None, description="Collation")
 
 
-ScalarDefault = str | int | float | bool | None
+FiniteFloat = Annotated[float, Field(allow_inf_nan=False)]
+ScalarDefault = str | int | FiniteFloat | bool | None
 
 
 class ColumnDefinition(DefinitionModel):

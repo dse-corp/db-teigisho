@@ -201,6 +201,7 @@
 
     <footer>SSOT: YAML / db-teigisho {{ tool_version }}</footer>
   </main>
+  <script id="dbdef-er-graph" type="application/json">{{ er_graph_json | safe }}</script>
   <script>
     (() => {
       const controls = document.querySelectorAll("[data-er-mode]");

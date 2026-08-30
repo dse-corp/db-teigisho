@@ -74,6 +74,13 @@ ER図はYAMLに定義されたFKから生成します。`npm ci`で固定され�
 主キーの一部なら実線、それ以外は破線です。`--er-columns` は `all`、`keys`、`tables`
 を指定できます。`render --format svg|png` でも表示モードを指定できます。
 
+自己完結HTMLには、`<script id="dbdef-er-graph" type="application/json">` として
+`format_version: "1.0"` のERグラフデータも埋め込みます。`tables` とその `columns`、
+`relationships` はYAMLの定義順を維持し、各カラムの `key_roles`（`PK`、`UK`、`FK`）、
+複合FKの `column_pairs`、両端のcardinality、`identifying` / `non_identifying` を収録します。
+ブラウザでは要素の `textContent` を `JSON.parse` して取得できます。Pythonから同じ契約を
+利用する場合は `db_teigisho.er_graph.build_er_graph` を呼び出します。
+
 ## 自動検証
 
 - `.pre-commit-config.yaml`: `definitions/**/*.yaml` をコミット前に検証

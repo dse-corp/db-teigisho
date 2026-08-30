@@ -48,6 +48,7 @@ from db_teigisho.diagram_render import (
     render_er_diagrams,
 )
 from db_teigisho.er import ColumnDisplayMode, render_mermaid
+from db_teigisho.er_graph import build_er_graph
 from db_teigisho.loader import load_definition
 from db_teigisho.models import DatabaseDefinition, SqlObjectDefinition, TableDefinition
 
@@ -78,6 +79,24 @@ def _excel_value(value: object) -> Any:
 
 def _svg_data_uri(svg: bytes) -> str:
     return f"data:image/svg+xml;base64,{b64encode(svg).decode('ascii')}"
+
+
+def _html_script_json(value: object) -> str:
+    serialized = json.dumps(
+        value,
+        ensure_ascii=False,
+        allow_nan=False,
+        separators=(",", ":"),
+    )
+    return serialized.translate(
+        {
+            ord("&"): "\\u0026",
+            ord("<"): "\\u003c",
+            ord(">"): "\\u003e",
+            ord("\u2028"): "\\u2028",
+            ord("\u2029"): "\\u2029",
+        }
+    )
 
 
 def _all_er_diagrams(
@@ -119,6 +138,9 @@ def render_html(
                 mode: _svg_data_uri(rendered_diagrams[mode].svg)
                 for mode in DEFAULT_ER_DIAGRAM_MODES
             },
+            er_graph_json=_html_script_json(
+                build_er_graph(definition).model_dump(mode="json")
+            ),
             tool_version=__version__,
         ),
         encoding="utf-8",

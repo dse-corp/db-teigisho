@@ -83,15 +83,19 @@
     return positions;
   }
 
-  function visibleColumns(table) {
-    if (state.mode === "tables") {
+  function columnsForMode(table, mode) {
+    if (mode === "tables") {
       return [];
     }
-    if (state.mode === "keys") {
+    if (mode === "keys") {
       return table.columns.filter((column) => column.key_roles.includes("PK") ||
         column.key_roles.includes("FK"));
     }
     return table.columns;
+  }
+
+  function visibleColumns(table) {
+    return columnsForMode(table, state.mode);
   }
 
   function appendText(parent, text, attributes) {
@@ -422,6 +426,20 @@
     return { ...position };
   }
 
+  function getNodeSize(tableId, mode = "all") {
+    const table = tableById.get(tableId);
+    if (!table) {
+      throw new Error(`Unknown ER table node: ${tableId}`);
+    }
+    if (!MODES.has(mode)) {
+      throw new TypeError(`Unknown ER column display mode: ${mode}`);
+    }
+    return {
+      width: NODE_WIDTH,
+      height: HEADER_HEIGHT + columnsForMode(table, mode).length * ROW_HEIGHT,
+    };
+  }
+
   function normalizePosition(tableId, position) {
     if (!tableById.has(tableId)) {
       throw new Error(`Unknown ER table node: ${tableId}`);
@@ -559,6 +577,7 @@
     zoomIn: () => zoomFromCenter(ZOOM_FACTOR, "api"),
     zoomOut: () => zoomFromCenter(1 / ZOOM_FACTOR, "api"),
     getNodePosition,
+    getNodeSize,
     setNodePosition,
     setNodePositions,
     redrawEdges,

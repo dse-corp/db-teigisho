@@ -70,6 +70,8 @@ ER図はYAMLに定義されたFKから生成します。`npm ci`で固定され�
 導入すると、外部CDNなしでSVG/PNGを生成します。HTMLでは埋め込みグラフデータからER図を
 描画し、「全カラム」「PK・FKのみ」「テーブルのみ」の切り替え、ホイールまたはボタンでの
 ズーム、背景ドラッグでのパン、テーブルのドラッグによる配置変更、「全体表示」を利用できます。
+FKの親子関係を層化した決定的な自動配置は「左→右」と「上→下」を切り替えられ、循環参照や
+自己参照、孤立テーブル、複数の連結成分も重ならないよう配置してからER図全体を表示します。
 テーブルまたはカラムを選択すると、インデックス、外部キー、制約、defaultを含む読み取り専用の
 詳細パネルを表示します。矢印キーで選択候補を移動し、EnterまたはSpaceで選択、Escapeまたは
 閉じるボタンで閉じられます。倍率は5%から300%の範囲です。変更した配置は同じブラウザの
@@ -105,6 +107,7 @@ PDFとXLSXには従来どおり全カラム表示を掲載します。参照元F
 | `getGraph()` / `getState()` | 埋め込みグラフと現在のビュー状態をコピーとして取得 |
 | `setMode(mode)` / `setViewport(viewport)` / `fitToView()` | 表示モードとズーム・パン状態を更新 |
 | `getNodePosition(tableId)` / `setNodePosition(tableId, position)` | 単一ノードの座標を取得・更新 |
+| `getNodeSize(tableId, mode)` | 指定表示モード（既定は全カラム）のノード寸法を取得 |
 | `setNodePositions(positions)` | 配置アルゴリズムや保存済み配置から複数座標を一括更新 |
 | `redrawEdges()` | 現在のノード座標とサイズから全エッジを再描画 |
 | `setEdgePathRenderer(renderer)` | エッジ経路戦略を差し替え（`null` で既定へ復帰） |
@@ -118,7 +121,9 @@ PDFとXLSXには従来どおり全カラム表示を掲載します。参照元F
 `aria-controls="dbdef-er-details"` で単一の詳細パネルへ関連付けられます。
 
 配置操作は`window.dbdefErLayout` v1.0として分離され、`save()`、`restore()`、`reset()`、
-`getStorageKey()`、`getGraphFingerprint()`を公開します。保存キーは文書・データベース識別情報
+`getStorageKey()`、`getGraphFingerprint()`を公開します。`window.dbdefErAutoLayout` v1.0は
+`run()`、`setDirection()`、`calculate()`を公開し、計算と座標適用を分けて拡張できます。
+保存キーは文書・データベース識別情報
 のSHA-256と、テーブル・カラム・リレーション構造のフィンガープリントを含みます。構造変更時は
 同じ定義書の過去配置から物理名が一致するテーブルだけを復元します。新規テーブルは初期位置を
 基点に、復元済みテーブルと重なる場合だけ空き位置へ移してから全体表示します。保存領域が利用不可

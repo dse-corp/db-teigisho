@@ -25,6 +25,7 @@
   const storagePrefix = `${STORAGE_NAMESPACE}:${definitionId}:`;
   const storageKey = `${storagePrefix}${graphFingerprint}`;
   let dragState = null;
+  let layoutMetadata = {};
 
   function graphStructure(graphData) {
     const tables = new Map(graphData.tables.map((table) => [table.id, table]));
@@ -132,6 +133,18 @@
     return value;
   }
 
+  function metadataForRecord(record) {
+    if (record.metadata === undefined) {
+      return {};
+    }
+    if (record.metadata === null || typeof record.metadata !== "object" ||
+        Array.isArray(record.metadata)) {
+      setStatus("保存済み配置の形式が不正なため、初期配置を使用します。", "error");
+      return null;
+    }
+    return { ...record.metadata };
+  }
+
   function storedRecords(storage) {
     try {
       const exact = storage.getItem(storageKey);
@@ -235,6 +248,11 @@
     if (!record) {
       return false;
     }
+    const metadata = metadataForRecord(record);
+    if (metadata === null) {
+      return false;
+    }
+    layoutMetadata = metadata;
     const positions = positionsWithSafeDefaults(positionsForRecord(record));
     viewer.setNodePositions(positions, { source: "storage" });
     viewer.fitToView();
@@ -246,7 +264,11 @@
     return true;
   }
 
-  function save() {
+  function save(metadata = layoutMetadata) {
+    if (metadata === null || typeof metadata !== "object" || Array.isArray(metadata)) {
+      throw new TypeError("ER layout metadata must be an object.");
+    }
+    layoutMetadata = { ...metadata };
     const storage = getStorage("保存");
     if (storage === null) {
       return false;
@@ -262,6 +284,7 @@
       graphFingerprint,
       savedAt: Date.now(),
       positions,
+      metadata: layoutMetadata,
     };
     try {
       storage.setItem(storageKey, JSON.stringify(record));
@@ -375,12 +398,14 @@
   viewportElement.addEventListener("pointerup", finishDrag);
   viewportElement.addEventListener("pointercancel", finishDrag);
   document.querySelector('[data-er-action="reset-layout"]')?.addEventListener("click", reset);
-  restore();
+  const restored = restore();
 
   window.dbdefErLayout = Object.freeze({
     version: "1.0",
     getGraphFingerprint: () => graphFingerprint,
     getStorageKey: () => storageKey,
+    getMetadata: () => ({ ...layoutMetadata }),
+    wasRestored: () => restored,
     save,
     restore,
     reset,

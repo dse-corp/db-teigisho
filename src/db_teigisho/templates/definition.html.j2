@@ -89,6 +89,7 @@
     }
 {% include "er_details.css" %}
 {% include "er_layout.css" %}
+{% include "er_auto_layout.css" %}
     .er-diagram-image { display: block; width: 100%; min-width: 720px; height: auto; }
     .er-diagram-image[hidden] { display: none; }
     footer { margin-top: 56px; color: var(--muted); font-size: 12px; }
@@ -153,6 +154,14 @@
         <output id="dbdef-er-zoom-level" class="er-zoom-level" aria-live="polite">100%</output>
         <button type="button" data-er-action="zoom-in" aria-label="ER図を拡大">＋</button>
         <button type="button" data-er-action="fit">全体表示</button>
+        <span class="er-control-separator" aria-hidden="true"></span>
+        <button type="button" data-er-action="auto-layout">自動配置</button>
+        <span class="er-layout-direction" role="group" aria-label="自動配置の方向">
+          <button type="button" data-er-layout-direction="left-to-right"
+            aria-pressed="true">左→右</button>
+          <button type="button" data-er-layout-direction="top-to-bottom"
+            aria-pressed="false">上→下</button>
+        </span>
         <button type="button" data-er-action="reset-layout">配置をリセット</button>
         <output id="dbdef-er-layout-status" class="er-layout-status" aria-live="polite"></output>
       </div>
@@ -256,6 +265,9 @@
   </script>
   <script>
 {% include "er_layout.js" %}
+  </script>
+  <script>
+{% include "er_auto_layout.js" %}
   </script>
 </body>
 </html>

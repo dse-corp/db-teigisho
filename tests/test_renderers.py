@@ -57,6 +57,9 @@ def test_renders_interactive_er_viewer_controls_and_extension_contract(
     assert 'data-er-action="zoom-in"' in html
     assert 'data-er-action="zoom-out"' in html
     assert 'data-er-action="fit"' in html
+    assert 'data-er-action="auto-layout"' in html
+    assert 'data-er-layout-direction="left-to-right"' in html
+    assert 'data-er-layout-direction="top-to-bottom"' in html
     assert 'data-er-action="reset-layout"' in html
     assert 'id="dbdef-er-zoom-level"' in html
     assert 'id="dbdef-er-layout-status"' in html
@@ -65,9 +68,11 @@ def test_renders_interactive_er_viewer_controls_and_extension_contract(
     assert "window.dbdefErViewer" in html
     assert "setNodePosition" in html
     assert "setNodePositions" in html
+    assert "getNodeSize" in html
     assert "redrawEdges" in html
     assert "setEdgePathRenderer" in html
     assert "window.dbdefErLayout" in html
+    assert "window.dbdefErAutoLayout" in html
     assert "dbdef:er-node-position-change" in html
     assert "dbdef:er-edges-redrawn" in html
     assert 'id="dbdef-er-details"' in html

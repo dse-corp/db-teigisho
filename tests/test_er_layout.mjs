@@ -117,8 +117,12 @@ function pageHtml({
     : "";
   const detailScript = withDetails ? `<script>${detailsScript}</script>` : "";
   const routingControls = withRouting
-    ? `<button type="button" data-er-edge-routing="straight" aria-pressed="true">Straight</button>
+    ? `<button type="button" data-er-edge-routing="curve" aria-pressed="false">Curve</button>
+       <button type="button" data-er-edge-routing="straight" aria-pressed="true">Straight</button>
        <button type="button" data-er-edge-routing="orthogonal" aria-pressed="false">Orthogonal</button>
+       <span data-er-orthogonal-controls hidden>
+         <button type="button" data-er-line-jumps aria-pressed="true">Line jump</button>
+       </span>
        <output id="dbdef-er-edge-routing-status" aria-live="polite"></output>`
     : "";
   const routingModule = withRouting ? `<script>${routingScript}</script>` : "";
@@ -499,6 +503,7 @@ test("resets to initial positions and removes all saved graph versions", async (
     window.dbdefErViewer.setNodePosition("table_1", { x: 700, y: 500 });
     window.dbdefErLayout.save();
   });
+
   await page.click('[data-er-action="reset-layout"]');
 
   assert.deepEqual(
@@ -518,6 +523,43 @@ test("resets to initial positions and removes all saved graph versions", async (
     initial,
   );
   await reloaded.close();
+});
+
+test("resets saved orthogonal segment positions with the table layout", async () => {
+  const definitionId = "reset-route-layout";
+  const page = await openPage({ definitionId, withRouting: true });
+  await page.click('[data-er-edge-routing="orthogonal"]');
+  await page.evaluate(() => {
+    window.dbdefErEdgeRouting.setRouteOffset("relationship_1", 800);
+    const currentKey = window.dbdefErEdgeRouting.getRouteStorageKey();
+    localStorage.setItem(
+      currentKey.replace(/[0-9a-f]+$/, "previous-graph"),
+      localStorage.getItem(currentKey),
+    );
+    window.dbdefErViewer.setNodePosition("table_1", { x: 700, y: 500 });
+    window.dbdefErLayout.save();
+  });
+  assert.deepEqual(
+    await page.evaluate(() => window.dbdefErEdgeRouting.getRouteOffsets()),
+    { relationship_1: 800 },
+  );
+
+  await page.click('[data-er-action="reset-layout"]');
+  const reset = await page.evaluate(() => {
+    const beforeRefit = window.dbdefErViewer.getState().viewport;
+    window.dbdefErViewer.fitToView();
+    return {
+      offsets: window.dbdefErEdgeRouting.getRouteOffsets(),
+      routeRecords: Object.keys(localStorage).filter((key) =>
+        key.startsWith("dbdef:er-route-layout:v1:reset-route-layout:")),
+      beforeRefit,
+      afterRefit: window.dbdefErViewer.getState().viewport,
+    };
+  });
+  assert.deepEqual(reset.offsets, {});
+  assert.deepEqual(reset.routeRecords, []);
+  assert.deepEqual(reset.beforeRefit, reset.afterRefit);
+  await page.close();
 });
 
 test("continues dragging and reports quota failures when a layout cannot be saved", async () => {

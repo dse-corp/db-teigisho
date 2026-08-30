@@ -54,6 +54,13 @@ const graph = {
       description: null,
       columns: columns("table_3"),
     },
+    {
+      id: "table_4",
+      physical_name: "shipments",
+      logical_name: "Shipments",
+      description: null,
+      columns: columns("table_4"),
+    },
   ],
   relationships: [
     {
@@ -160,10 +167,27 @@ const graph = {
       on_delete: "RESTRICT",
       deferrable: false,
     },
+    {
+      id: "relationship_9",
+      name: "fk_shipments_order",
+      parent_table_id: "table_2",
+      child_table_id: "table_4",
+      column_pairs: [],
+      parent_cardinality: "exactly_one",
+      child_cardinality: "zero_or_many",
+      relationship_type: "non_identifying",
+      on_update: "NO ACTION",
+      on_delete: "RESTRICT",
+      deferrable: false,
+    },
   ],
 };
 
-function pageHtml({ beforeRouting = "", clearStorage = true } = {}) {
+function pageHtml({
+  beforeRouting = "",
+  clearStorage = true,
+  definitionId = "routing-tests",
+} = {}) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -178,13 +202,17 @@ function pageHtml({ beforeRouting = "", clearStorage = true } = {}) {
   </style>
 </head>
 <body>
-  <section id="er-diagram">
+  <section id="er-diagram" data-er-definition-id="${definitionId}">
     <div class="er-controls">
       <button type="button" data-er-mode="all" aria-pressed="true">All</button>
       <button type="button" data-er-mode="keys" aria-pressed="false">Keys</button>
       <button type="button" data-er-mode="tables" aria-pressed="false">Tables</button>
+      <button type="button" data-er-edge-routing="curve" aria-pressed="false">Curve</button>
       <button type="button" data-er-edge-routing="straight" aria-pressed="true">Straight</button>
       <button type="button" data-er-edge-routing="orthogonal" aria-pressed="false">Orthogonal</button>
+      <span data-er-orthogonal-controls hidden>
+        <button type="button" data-er-line-jumps aria-pressed="true">Line jump</button>
+      </span>
       <button type="button" data-er-action="zoom-out">Zoom out</button>
       <output id="dbdef-er-zoom-level">100%</output>
       <button type="button" data-er-action="zoom-in">Zoom in</button>
@@ -231,13 +259,24 @@ async function openPage(options) {
   return page;
 }
 
-test("switches immediately between straight and orthogonal routes and restores the choice", async () => {
+test("switches immediately between curve, straight, and orthogonal routes and restores the choice", async () => {
   const page = await openPage();
-  const before = await page.$eval(".er-edge", (edge) => edge.getAttribute("d"));
+  const straight = await page.$eval(".er-edge", (edge) => edge.getAttribute("d"));
   assert.equal(
     await page.evaluate(() => window.dbdefErEdgeRouting.getRoutingMode()),
     "straight",
   );
+
+  await page.click('[data-er-edge-routing="curve"]');
+  const curve = await page.evaluate(() => ({
+    mode: window.dbdefErEdgeRouting.getRoutingMode(),
+    path: document.querySelector(".er-edge").getAttribute("d"),
+    pressed: document.querySelector('[data-er-edge-routing="curve"]').ariaPressed,
+  }));
+  assert.equal(curve.mode, "curve");
+  assert.match(curve.path, /\bC\b/);
+  assert.notEqual(curve.path, straight);
+  assert.equal(curve.pressed, "true");
 
   await page.click('[data-er-edge-routing="orthogonal"]');
   const selected = await page.evaluate(() => ({
@@ -247,7 +286,8 @@ test("switches immediately between straight and orthogonal routes and restores t
     stored: localStorage.getItem(window.dbdefErEdgeRouting.getStorageKey()),
   }));
   assert.equal(selected.mode, "orthogonal");
-  assert.notEqual(selected.path, before);
+  assert.notEqual(selected.path, straight);
+  assert.notEqual(selected.path, curve.path);
   assert.equal(selected.pressed, "true");
   assert.equal(selected.stored, "orthogonal");
   await page.close();
@@ -260,6 +300,214 @@ test("switches immediately between straight and orthogonal routes and restores t
   assert.equal(
     await restored.$eval('[data-er-edge-routing="orthogonal"]', (button) => button.ariaPressed),
     "true",
+  );
+  await restored.close();
+});
+
+test("drags an orthogonal channel on its constrained axis and restores its offset", async () => {
+  const definitionId = "editable-route";
+  const page = await openPage({ definitionId });
+  await page.click('[data-er-edge-routing="orthogonal"]');
+  await page.evaluate(() => {
+    window.dbdefErViewer.setNodePositions({
+      table_1: { x: 0, y: 200 },
+      table_2: { x: 400, y: 0 },
+      table_3: { x: 800, y: 400 },
+      table_4: { x: 500, y: 700 },
+    });
+    window.dbdefErViewer.setViewport({ scale: 1, x: 20, y: 20 });
+  });
+  const handle = await page.$(
+    '[data-er-edge-handle-id="relationship_6"][data-segment-axis="vertical"]',
+  );
+  assert.ok(handle);
+  const box = await handle.boundingBox();
+  const before = await page.$eval(
+    '[data-relationship-id="relationship_6"]',
+    (edge) => edge.getAttribute("d"),
+  );
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 70, box.y + box.height / 2 + 45, {
+    steps: 4,
+  });
+  await page.mouse.up();
+
+  const horizontalHandle = await page.$(
+    '[data-er-edge-handle-id="relationship_9"][data-segment-axis="horizontal"]',
+  );
+  assert.ok(horizontalHandle);
+  const horizontalBox = await horizontalHandle.boundingBox();
+  await page.mouse.move(
+    horizontalBox.x + horizontalBox.width / 2,
+    horizontalBox.y + horizontalBox.height / 2,
+  );
+  await page.mouse.down();
+  await page.mouse.move(
+    horizontalBox.x + horizontalBox.width / 2 + 35,
+    horizontalBox.y + horizontalBox.height / 2 - 50,
+    { steps: 4 },
+  );
+  await page.mouse.up();
+
+  const edited = await page.evaluate(() => ({
+    path: document.querySelector(
+      '[data-relationship-id="relationship_6"]',
+    ).getAttribute("d"),
+    offset: window.dbdefErEdgeRouting.getRouteOffsets(),
+    record: JSON.parse(
+      localStorage.getItem(window.dbdefErEdgeRouting.getRouteStorageKey()),
+    ),
+  }));
+  assert.notEqual(edited.path, before);
+  assert.ok(edited.offset.relationship_6 > 60 && edited.offset.relationship_6 < 80);
+  assert.ok(edited.offset.relationship_9 < -40 && edited.offset.relationship_9 > -60);
+  assert.deepEqual(edited.record.offsets, edited.offset);
+  await page.close();
+
+  const restored = await openPage({ definitionId, clearStorage: false });
+  await restored.click('[data-er-edge-routing="orthogonal"]');
+  await restored.evaluate(() => {
+    window.dbdefErViewer.setNodePositions({
+      table_1: { x: 0, y: 200 },
+      table_2: { x: 400, y: 0 },
+      table_3: { x: 800, y: 400 },
+      table_4: { x: 500, y: 700 },
+    });
+  });
+  assert.deepEqual(
+    await restored.evaluate(
+      () => window.dbdefErEdgeRouting.getRouteOffsets(),
+    ),
+    edited.offset,
+  );
+  assert.equal(
+    await restored.$eval(
+      '[data-relationship-id="relationship_6"]',
+      (edge) => edge.getAttribute("d"),
+    ),
+    edited.path,
+  );
+  await restored.close();
+});
+
+test("creates a draggable dogleg for horizontally aligned orthogonal endpoints", async () => {
+  const page = await openPage();
+  await page.click('[data-er-edge-routing="orthogonal"]');
+  await page.evaluate(() => window.dbdefErViewer.setViewport({ scale: 1, x: 20, y: 20 }));
+  const handle = await page.$(
+    '[data-er-edge-handle-id="relationship_1"][data-segment-axis="horizontal"]',
+  );
+  assert.ok(handle);
+  const box = await handle.boundingBox();
+  assert.ok(box.width > 20);
+  const before = await page.$eval(
+    '[data-relationship-id="relationship_1"]',
+    (edge) => edge.getAttribute("d"),
+  );
+
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 35, box.y + box.height / 2 + 60, {
+    steps: 4,
+  });
+  await page.mouse.up();
+
+  const edited = await page.evaluate(() => ({
+    path: document.querySelector(
+      '[data-relationship-id="relationship_1"]',
+    ).getAttribute("d"),
+    offset: window.dbdefErEdgeRouting.getRouteOffsets().relationship_1,
+  }));
+  assert.notEqual(edited.path, before);
+  assert.ok(edited.offset > 50 && edited.offset < 70);
+  await page.close();
+});
+
+test("rejects invalid route APIs and ignores a corrupt saved route record", async () => {
+  const page = await openPage({
+    clearStorage: true,
+    beforeRouting: `
+      const originalGetItem = Storage.prototype.getItem;
+      Storage.prototype.getItem = function (key) {
+        return key.startsWith("dbdef:er-route-layout:v1:")
+          ? "{not-json"
+          : originalGetItem.call(this, key);
+      };
+    `,
+  });
+  const result = await page.evaluate(() => {
+    const errors = [];
+    for (const action of [
+      () => window.dbdefErEdgeRouting.setRouteOffset("missing", 1),
+      () => window.dbdefErEdgeRouting.setRouteOffset("relationship_1", Number.NaN),
+      () => window.dbdefErEdgeRouting.setRouteOffset("relationship_1", 10_001),
+      () => window.dbdefErEdgeRouting.setLineJumpsEnabled("true"),
+    ]) {
+      try {
+        action();
+      } catch (error) {
+        errors.push(error.name);
+      }
+    }
+    return {
+      errors,
+      offsets: window.dbdefErEdgeRouting.getRouteOffsets(),
+      status: document.querySelector("#dbdef-er-edge-routing-status").textContent,
+    };
+  });
+  assert.deepEqual(result.errors, ["Error", "TypeError", "RangeError", "TypeError"]);
+  assert.deepEqual(result.offsets, {});
+  assert.match(result.status, /保存済み鍵線位置が壊れている/);
+  await page.close();
+});
+
+test("defaults Line jump to on, renders crossings, and persists its toggle", async () => {
+  const definitionId = "line-jumps";
+  const page = await openPage({ definitionId });
+  await page.click('[data-er-edge-routing="orthogonal"]');
+  const enabled = await page.evaluate(() => {
+    window.dbdefErViewer.setNodePositions({
+      table_1: { x: 0, y: 200 },
+      table_2: { x: 400, y: 0 },
+      table_3: { x: 800, y: 400 },
+      table_4: { x: 500, y: 700 },
+    });
+    return {
+      enabled: window.dbdefErEdgeRouting.getLineJumpsEnabled(),
+      controlsHidden: document.querySelector("[data-er-orthogonal-controls]").hidden,
+      jumps: document.querySelectorAll(".er-edge-jump-line").length,
+      uniqueJumps: new Set(Array.from(
+        document.querySelectorAll(".er-edge-jump-line"),
+        (jump) => `${jump.dataset.relationshipJumpId}:${jump.getAttribute("d")}`,
+      )).size,
+      pressed: document.querySelector("[data-er-line-jumps]").ariaPressed,
+    };
+  });
+  assert.equal(enabled.enabled, true);
+  assert.equal(enabled.controlsHidden, false);
+  assert.ok(enabled.jumps > 0);
+  assert.equal(enabled.uniqueJumps, enabled.jumps);
+  assert.equal(enabled.pressed, "true");
+
+  await page.click("[data-er-line-jumps]");
+  assert.deepEqual(
+    await page.evaluate(() => ({
+      enabled: window.dbdefErEdgeRouting.getLineJumpsEnabled(),
+      jumps: document.querySelectorAll(".er-edge-jump-line").length,
+      stored: localStorage.getItem(
+        window.dbdefErEdgeRouting.getLineJumpStorageKey(),
+      ),
+    })),
+    { enabled: false, jumps: 0, stored: "false" },
+  );
+  await page.close();
+
+  const restored = await openPage({ definitionId, clearStorage: false });
+  await restored.click('[data-er-edge-routing="orthogonal"]');
+  assert.equal(
+    await restored.evaluate(() => window.dbdefErEdgeRouting.getLineJumpsEnabled()),
+    false,
   );
   await restored.close();
 });
@@ -435,7 +683,10 @@ test("reports storage failures explicitly and keeps the interactive diagram usab
   assert.equal(result.edgeCount, graph.relationships.length);
   assert.match(result.status, /保存できません/);
   assert.equal(result.failed, "error");
-  assert.deepEqual(result.errors.map((error) => error.action), ["復元", "保存"]);
+  assert.deepEqual(
+    result.errors.map((error) => error.action),
+    ["復元", "復元", "復元", "保存"],
+  );
   assert.ok(result.errors.every((error) => error.name === "SecurityError"));
   await page.close();
 });

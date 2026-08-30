@@ -144,10 +144,15 @@ function pageHtml({ graph = complexGraph, definitionId }) {
       <button type="button" data-er-mode="all" aria-pressed="true">All</button>
       <button type="button" data-er-mode="keys" aria-pressed="false">Keys</button>
       <button type="button" data-er-mode="tables" aria-pressed="false">Tables</button>
+      <button type="button" data-er-edge-routing="curve"
+        aria-pressed="false">Curve</button>
       <button type="button" data-er-edge-routing="straight"
         aria-pressed="true">Straight</button>
       <button type="button" data-er-edge-routing="orthogonal"
         aria-pressed="false">Orthogonal</button>
+      <span data-er-orthogonal-controls hidden>
+        <button type="button" data-er-line-jumps aria-pressed="true">Line jump</button>
+      </span>
       <button type="button" data-er-action="zoom-out">Zoom out</button>
       <output id="dbdef-er-zoom-level">100%</output>
       <button type="button" data-er-action="zoom-in">Zoom in</button>
@@ -350,7 +355,7 @@ test("uses each selected edge strategy once for LR and TB auto-layout redraws", 
     );
   });
 
-  for (const mode of ["straight", "orthogonal"]) {
+  for (const mode of ["curve", "straight", "orthogonal"]) {
     for (const direction of ["left-to-right", "top-to-bottom"]) {
       const result = await page.evaluate(({ mode, direction }) => {
         window.dbdefErEdgeRouting.setRoutingMode(mode, { persist: false });
@@ -414,8 +419,9 @@ test("uses each selected edge strategy once for LR and TB auto-layout redraws", 
       assert.deepEqual(result.cardinalities.map((item) => item.text), ["1", "0..*"]);
       assert.ok(result.cardinalities.every((item) =>
         Number.isFinite(Number(item.x)) && Number.isFinite(Number(item.y))));
-      assert.ok(result.path.includes(" L "));
-      if (mode === "orthogonal") {
+      if (mode === "curve") {
+        assert.ok(result.path.includes(" C "));
+      } else if (mode === "orthogonal") {
         assert.ok(result.path.split(" L ").length >= 5);
       } else {
         assert.equal(result.path.split(" L ").length, 2);

@@ -71,6 +71,10 @@ def test_renders_interactive_er_viewer_controls_and_extension_contract(
     assert "getNodeSize" in html
     assert "redrawEdges" in html
     assert "setEdgePathRenderer" in html
+    assert 'data-er-edge-routing="straight"' in html
+    assert 'data-er-edge-routing="orthogonal"' in html
+    assert "window.dbdefErEdgeRouting" in html
+    assert "dbdef:er-edge-routing-storage-error" in html
     assert "window.dbdefErLayout" in html
     assert "window.dbdefErAutoLayout" in html
     assert "dbdef:er-node-position-change" in html

@@ -1,0 +1,8 @@
+    .er-edge-routing-controls { display: inline-flex; align-items: center; gap: 6px; }
+    .er-edge-routing-label { color: var(--muted); font-weight: 650; }
+    .er-edge-routing-status { min-height: 1.5em; color: var(--muted); }
+    .er-edge-routing-status[data-status="error"] { color: #a12622; font-weight: 650; }
+    .er-edge-cardinality {
+      fill: var(--muted); paint-order: stroke; stroke: var(--surface); stroke-width: 5px;
+      stroke-linejoin: round; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+    }

@@ -32,6 +32,14 @@ const detailsStyles = await readFile(
   new URL("../src/db_teigisho/templates/er_details.css", import.meta.url),
   "utf8",
 );
+const routingScript = await readFile(
+  new URL("../src/db_teigisho/templates/er_edge_routing.js", import.meta.url),
+  "utf8",
+);
+const routingStyles = await readFile(
+  new URL("../src/db_teigisho/templates/er_edge_routing.css", import.meta.url),
+  "utf8",
+);
 
 function table(id, columnCount = 1) {
   return {
@@ -92,10 +100,27 @@ const complexGraph = {
   relationships: [
     relationship("accounts_orders", "accounts", "orders"),
     relationship("orders_items", "orders", "order_items"),
+    relationship("items_self_parent", "order_items", "order_items"),
+    relationship("items_self_template", "order_items", "order_items"),
     relationship("cycle_a_b", "cycle_a", "cycle_b"),
     relationship("cycle_b_a", "cycle_b", "cycle_a"),
     relationship("cycle_self", "cycle_a", "cycle_a"),
     relationship("regions_warehouses", "regions", "warehouses"),
+  ],
+};
+
+const edgeFitGraph = {
+  format_version: "1.0",
+  tables: [
+    table("accounts", 4),
+    table("orders", 2),
+    table("order_items", 6),
+  ],
+  relationships: [
+    relationship("accounts_orders", "accounts", "orders"),
+    relationship("orders_items", "orders", "order_items"),
+    relationship("items_self_parent", "order_items", "order_items"),
+    relationship("items_self_template", "order_items", "order_items"),
   ],
 };
 
@@ -110,6 +135,7 @@ function pageHtml({ graph = complexGraph, definitionId }) {
     ${layoutStyles}
     ${autoLayoutStyles}
     ${detailsStyles}
+    ${routingStyles}
   </style>
 </head>
 <body>
@@ -118,6 +144,10 @@ function pageHtml({ graph = complexGraph, definitionId }) {
       <button type="button" data-er-mode="all" aria-pressed="true">All</button>
       <button type="button" data-er-mode="keys" aria-pressed="false">Keys</button>
       <button type="button" data-er-mode="tables" aria-pressed="false">Tables</button>
+      <button type="button" data-er-edge-routing="straight"
+        aria-pressed="true">Straight</button>
+      <button type="button" data-er-edge-routing="orthogonal"
+        aria-pressed="false">Orthogonal</button>
       <button type="button" data-er-action="zoom-out">Zoom out</button>
       <output id="dbdef-er-zoom-level">100%</output>
       <button type="button" data-er-action="zoom-in">Zoom in</button>
@@ -129,6 +159,7 @@ function pageHtml({ graph = complexGraph, definitionId }) {
         aria-pressed="false">Top to bottom</button>
       <button type="button" data-er-action="reset-layout">Reset</button>
       <output id="dbdef-er-layout-status" aria-live="polite"></output>
+      <output id="dbdef-er-edge-routing-status" aria-live="polite"></output>
     </div>
     <div class="er-diagram-frame">
       <div id="dbdef-er-viewer" class="er-viewer"></div>
@@ -144,6 +175,7 @@ function pageHtml({ graph = complexGraph, definitionId }) {
   <script id="dbdef-er-graph" type="application/json">${JSON.stringify(graph)}</script>
   <script>${viewerScript}</script>
   <script>${detailsScript}</script>
+  <script>${routingScript}</script>
   <script>${layoutScript}</script>
   <script>${autoLayoutScript}</script>
 </body>
@@ -201,7 +233,18 @@ async function inspectLayout(page) {
         left.x < right.x + right.width && left.x + left.width > right.x &&
         left.y < right.y + right.height && left.y + left.height > right.y,
       ).map((right) => [left.id, right.id]));
-    return { nodes, overlaps, viewport: state.viewport };
+    const routedContent = Array.from(
+      document.querySelectorAll(".er-edge, .er-edge-label, .er-edge-cardinality"),
+      (element) => {
+        const screen = element.getBoundingClientRect();
+        return {
+          className: element.getAttribute("class"),
+          visible: screen.left >= frame.left - 1 && screen.right <= frame.right + 1 &&
+            screen.top >= frame.top - 1 && screen.bottom <= frame.bottom + 1,
+        };
+      },
+    );
+    return { nodes, overlaps, routedContent, viewport: state.viewport };
   });
 }
 
@@ -240,6 +283,7 @@ test("initially lays out every component deterministically without overlaps and 
 test("switches to top-to-bottom layout and persists the complete result", async () => {
   const definitionId = "direction-and-storage";
   const page = await openPage({ definitionId });
+  await page.click('[data-er-edge-routing="orthogonal"]');
   await page.click('[data-er-layout-direction="top-to-bottom"]');
   const positions = await page.evaluate(() => window.dbdefErViewer.getState().nodePositions);
   assert.ok(positions.accounts.y < positions.orders.y);
@@ -275,6 +319,10 @@ test("switches to top-to-bottom layout and persists the complete result", async 
     await restored.evaluate(() => window.dbdefErAutoLayout.getDirection()),
     "top-to-bottom",
   );
+  assert.equal(
+    await restored.evaluate(() => window.dbdefErEdgeRouting.getRoutingMode()),
+    "orthogonal",
+  );
   assert.deepEqual(
     await restored.evaluate(() => ({
       leftToRight: document.querySelector(
@@ -283,41 +331,101 @@ test("switches to top-to-bottom layout and persists the complete result", async 
       topToBottom: document.querySelector(
         '[data-er-layout-direction="top-to-bottom"]',
       ).getAttribute("aria-pressed"),
+      orthogonal: document.querySelector(
+        '[data-er-edge-routing="orthogonal"]',
+      ).getAttribute("aria-pressed"),
     })),
-    { leftToRight: "false", topToBottom: "true" },
+    { leftToRight: "false", topToBottom: "true", orthogonal: "true" },
   );
   await restored.close();
 });
 
-test("uses the registered edge strategy and redraws it exactly once", async () => {
-  const page = await openPage({ definitionId: "edge-boundary" });
-  const result = await page.evaluate(() => {
-    const viewport = document.querySelector("#dbdef-er-viewer");
-    let rendererCalls = 0;
-    let redrawEvents = 0;
-    window.dbdefErViewer.setEdgePathRenderer(({ source, target }) => {
-      rendererCalls += 1;
-      return `M ${source.centerX} ${source.centerY} L ${target.centerX} ${target.centerY}`;
-    });
-    rendererCalls = 0;
-    viewport.addEventListener("dbdef:er-edges-redrawn", () => {
-      redrawEvents += 1;
-    });
-    window.dbdefErAutoLayout.run();
-    return {
-      rendererCalls,
-      redrawEvents,
-      edgeCount: document.querySelectorAll(".er-edge").length,
-      straightPaths: Array.from(document.querySelectorAll(".er-edge"))
-        .every((edge) => edge.getAttribute("d").includes(" L ")),
-    };
+test("uses each selected edge strategy once for LR and TB auto-layout redraws", async () => {
+  const page = await openPage({ definitionId: "edge-boundary", graph: edgeFitGraph });
+  await page.evaluate(() => {
+    window.integrationRedraws = 0;
+    document.querySelector("#dbdef-er-viewer").addEventListener(
+      "dbdef:er-edges-redrawn",
+      () => { window.integrationRedraws += 1; },
+    );
   });
-  assert.deepEqual(result, {
-    rendererCalls: complexGraph.relationships.length,
-    redrawEvents: 1,
-    edgeCount: complexGraph.relationships.length,
-    straightPaths: true,
-  });
+
+  for (const mode of ["straight", "orthogonal"]) {
+    for (const direction of ["left-to-right", "top-to-bottom"]) {
+      const result = await page.evaluate(({ mode, direction }) => {
+        window.dbdefErEdgeRouting.setRoutingMode(mode, { persist: false });
+        let rendererCalls = 0;
+        const selectedStrategy = window.dbdefErEdgeRouting.strategies[mode];
+        window.dbdefErViewer.setEdgePathRenderer((input) => {
+          rendererCalls += 1;
+          return selectedStrategy(input);
+        });
+        const displaced = Object.fromEntries(
+          window.dbdefErViewer.getGraph().tables.map((table, index) => [
+            table.id,
+            { x: 5000 + index * 11, y: -3000 - index * 17 },
+          ]),
+        );
+        window.dbdefErViewer.setNodePositions(displaced);
+        const edge = document.querySelector('[data-relationship-id="accounts_orders"]');
+        const label = document.querySelector(
+          '[data-relationship-label-id="accounts_orders"]',
+        );
+        const before = {
+          path: edge.getAttribute("d"),
+          label: [label.getAttribute("x"), label.getAttribute("y")],
+        };
+        rendererCalls = 0;
+        window.integrationRedraws = 0;
+        window.dbdefErAutoLayout.run(direction);
+        const cardinalities = Array.from(
+          document.querySelectorAll(
+            '[data-relationship-cardinality-id="accounts_orders"]',
+          ),
+          (item) => ({
+            text: item.textContent,
+            x: item.getAttribute("x"),
+            y: item.getAttribute("y"),
+          }),
+        );
+        return {
+          rendererCalls,
+          redrawEvents: window.integrationRedraws,
+          route: edge.dataset.edgeRouting,
+          direction: window.dbdefErAutoLayout.getDirection(),
+          path: edge.getAttribute("d"),
+          label: [label.getAttribute("x"), label.getAttribute("y")],
+          before,
+          cardinalities,
+          edgeCount: document.querySelectorAll(".er-edge").length,
+          labelCount: document.querySelectorAll(".er-edge-label").length,
+          cardinalityCount: document.querySelectorAll(".er-edge-cardinality").length,
+        };
+      }, { mode, direction });
+      assert.equal(result.rendererCalls, edgeFitGraph.relationships.length);
+      assert.equal(result.redrawEvents, 1);
+      assert.equal(result.route, mode);
+      assert.equal(result.direction, direction);
+      assert.notEqual(result.path, result.before.path);
+      assert.notDeepEqual(result.label, result.before.label);
+      assert.equal(result.edgeCount, edgeFitGraph.relationships.length);
+      assert.equal(result.labelCount, edgeFitGraph.relationships.length);
+      assert.equal(result.cardinalityCount, edgeFitGraph.relationships.length * 2);
+      assert.deepEqual(result.cardinalities.map((item) => item.text), ["1", "0..*"]);
+      assert.ok(result.cardinalities.every((item) =>
+        Number.isFinite(Number(item.x)) && Number.isFinite(Number(item.y))));
+      assert.ok(result.path.includes(" L "));
+      if (mode === "orthogonal") {
+        assert.ok(result.path.split(" L ").length >= 5);
+      } else {
+        assert.equal(result.path.split(" L ").length, 2);
+      }
+      const inspected = await inspectLayout(page);
+      assert.deepEqual(inspected.overlaps, []);
+      assert.ok(inspected.nodes.every((node) => node.visible));
+      assert.ok(inspected.routedContent.every((element) => element.visible));
+    }
+  }
   await page.close();
 });
 
@@ -365,6 +473,8 @@ test("coexists with detail selection, ARIA, dragging, and saved restoration", as
   const definitionId = "details-drag-integration";
   const page = await openPage({ definitionId });
 
+  const layoutBeforeSelection = await page.evaluate(() =>
+    localStorage.getItem(window.dbdefErLayout.getStorageKey()));
   await page.click('[data-table-id="accounts"] .er-node-physical');
   let details = await page.evaluate(() => {
     const target = document.querySelector(
@@ -377,17 +487,18 @@ test("coexists with detail selection, ARIA, dragging, and saved restoration", as
       selected: target.getAttribute("aria-selected"),
       controls: target.getAttribute("aria-controls"),
       panelRole: document.querySelector("#dbdef-er-details").getAttribute("role"),
+      layoutRecord: localStorage.getItem(window.dbdefErLayout.getStorageKey()),
     };
   });
-  assert.deepEqual(details, {
-    hidden: false,
-    title: "accounts / accounts",
-    role: "option",
-    selected: "true",
-    controls: "dbdef-er-details",
-    panelRole: "region",
-  });
+  assert.equal(details.hidden, false);
+  assert.equal(details.title, "accounts / accounts");
+  assert.equal(details.role, "option");
+  assert.equal(details.selected, "true");
+  assert.equal(details.controls, "dbdef-er-details");
+  assert.equal(details.panelRole, "region");
+  assert.equal(details.layoutRecord, layoutBeforeSelection);
 
+  await page.click('[data-er-edge-routing="orthogonal"]');
   await page.click('[data-er-layout-direction="top-to-bottom"]');
   assert.equal(
     await page.$eval(
@@ -404,6 +515,7 @@ test("coexists with detail selection, ARIA, dragging, and saved restoration", as
       title: document.querySelector("#dbdef-er-details-title").textContent,
       selected: target.getAttribute("aria-selected"),
       controls: target.getAttribute("aria-controls"),
+      route: window.dbdefErEdgeRouting.getRoutingMode(),
     };
   });
   assert.deepEqual(details, {
@@ -411,6 +523,7 @@ test("coexists with detail selection, ARIA, dragging, and saved restoration", as
     title: "column_0 / column_0",
     selected: "true",
     controls: "dbdef-er-details",
+    route: "orthogonal",
   });
 
   await page.evaluate(() => window.dbdefErViewer.setViewport({ scale: 1, x: 30, y: 30 }));
@@ -428,6 +541,7 @@ test("coexists with detail selection, ARIA, dragging, and saved restoration", as
     return {
       position: record.positions.orders,
       direction: record.metadata.autoLayoutDirection,
+      route: localStorage.getItem(window.dbdefErEdgeRouting.getStorageKey()),
       tableSelected: document.querySelector(
         '[data-table-id="orders"] [data-er-detail-target="table"]',
       ).getAttribute("aria-selected"),
@@ -436,6 +550,7 @@ test("coexists with detail selection, ARIA, dragging, and saved restoration", as
   assert.deepEqual(saved, {
     position: dragged,
     direction: "top-to-bottom",
+    route: "orthogonal",
     tableSelected: "true",
   });
   await page.close();
@@ -448,6 +563,10 @@ test("coexists with detail selection, ARIA, dragging, and saved restoration", as
   assert.equal(
     await restored.evaluate(() => window.dbdefErAutoLayout.getDirection()),
     "top-to-bottom",
+  );
+  assert.equal(
+    await restored.evaluate(() => window.dbdefErEdgeRouting.getRoutingMode()),
+    "orthogonal",
   );
   await restored.click('[data-column-id="orders_column_0"] .er-column-name');
   assert.equal(

@@ -153,8 +153,12 @@
         <span class="er-control-separator" aria-hidden="true"></span>
         <span class="er-edge-routing-controls" role="group" aria-label="リレーション線種">
           <span class="er-edge-routing-label">線種</span>
+          <button type="button" data-er-edge-routing="curve" aria-pressed="false">曲線</button>
           <button type="button" data-er-edge-routing="straight" aria-pressed="true">直線</button>
           <button type="button" data-er-edge-routing="orthogonal" aria-pressed="false">鍵線</button>
+        </span>
+        <span data-er-orthogonal-controls hidden>
+          <button type="button" data-er-line-jumps aria-pressed="true">Line jump</button>
         </span>
         <span class="er-control-separator" aria-hidden="true"></span>
         <button type="button" data-er-action="zoom-out" aria-label="ER図を縮小">−</button>
@@ -173,7 +177,7 @@
         <output id="dbdef-er-layout-status" class="er-layout-status" aria-live="polite"></output>
         <output id="dbdef-er-edge-routing-status" class="er-edge-routing-status" aria-live="polite"></output>
       </div>
-      <div class="er-diagram-frame" tabindex="0" aria-label="ER図。テーブルをドラッグして配置変更、背景をドラッグして移動、ホイールで拡大縮小できます">
+      <div class="er-diagram-frame" tabindex="0" aria-label="ER図。テーブルと鍵線をドラッグして配置変更、背景をドラッグして移動、ホイールで拡大縮小できます">
         <div id="dbdef-er-viewer" class="er-viewer"></div>
         <aside id="dbdef-er-details" class="er-detail-panel" aria-live="polite"
           aria-labelledby="dbdef-er-details-title" hidden>

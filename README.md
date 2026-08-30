@@ -68,17 +68,18 @@ PDFにはNoto Sans JPを埋め込むため、CIや閲覧端末に日本語フォ
 
 ER図はYAMLに定義されたFKから生成します。`npm ci`で固定されたMermaid CLIとPuppeteerを
 導入すると、外部CDNなしでSVG/PNGを生成します。HTMLでは埋め込みグラフデータからER図を
-描画し、「全カラム」「PK・FKのみ」「テーブルのみ」の切り替え、リレーションの「直線」「鍵線」
-の切り替え、ホイールまたはボタンでのズーム、背景ドラッグでのパン、テーブルのドラッグによる
-配置変更、「全体表示」を利用できます。線種は再生成せず即時反映され、自己参照、同一テーブル間の
-複数FK、双方向参照は経路をずらしてFK名を判別できます。
+描画し、「全カラム」「PK・FKのみ」「テーブルのみ」の切り替え、リレーションの「曲線」「直線」
+「鍵線」の切り替え、ホイールまたはボタンでのズーム、背景ドラッグでのパン、テーブルのドラッグ
+による配置変更、「全体表示」を利用できます。鍵線は中央の水平・垂直セグメントをドラッグまたは
+矢印キーで移動でき、交差箇所を判別するLine jumpをOn/Offできます。線種は再生成せず即時反映され、
+自己参照、同一テーブル間の複数FK、双方向参照は経路をずらしてFK名を判別できます。
 FKの親子関係を層化した決定的な自動配置は「左→右」と「上→下」を切り替えられ、循環参照や
 自己参照、孤立テーブル、複数の連結成分も重ならないよう配置してからER図全体を表示します。
 テーブルまたはカラムを選択すると、インデックス、外部キー、制約、defaultを含む読み取り専用の
 詳細パネルを表示します。矢印キーで選択候補を移動し、EnterまたはSpaceで選択、Escapeまたは
-閉じるボタンで閉じられます。倍率は5%から300%の範囲です。変更した配置と選択した線種は同じ
-ブラウザの`localStorage`へ保存され、再読み込み時に復元されます。「配置をリセット」で保存済み
-配置を破棄して初期配置へ戻せます。
+閉じるボタンで閉じられます。倍率は5%から300%の範囲です。変更した配置、選択した線種、鍵線位置、
+Line jump設定は同じブラウザの`localStorage`へ保存され、再読み込み時に復元されます。
+「配置をリセット」で保存済み配置と鍵線位置を破棄して初期状態へ戻せます。
 HTMLはランタイムをすべて同梱するため、`file:` URLかつオフラインで動作します。
 JavaScriptが無効な場合と印刷時には、埋め込み済みの静的SVGを表示します。
 PDFとXLSXには従来どおり全カラム表示を掲載します。参照元FK列がすべてNOT NULLなら親端を必須
@@ -122,12 +123,16 @@ PDFとXLSXには従来どおり全カラム表示を掲載します。参照元F
 `data-relationship-id`があります。選択対象は `aria-selected` と
 `aria-controls="dbdef-er-details"` で単一の詳細パネルへ関連付けられます。
 
-線種切り替えは`window.dbdefErEdgeRouting` v1.0として分離され、
-`getRoutingMode()` / `setRoutingMode(mode)`で`straight`または`orthogonal`を取得・設定できます。
-各戦略は`setEdgePathRenderer()`へ登録され、ノード座標計算には関与しません。座標の単一・一括更新
-およびドラッグ時は`redrawEdges()`を通して選択中の経路、FK名、両端のカーディナリティを更新します。
+線種切り替えは`window.dbdefErEdgeRouting` v2.0として分離され、
+`getRoutingMode()` / `setRoutingMode(mode)`で`curve`、`straight`、`orthogonal`を取得・設定できます。
+`getRouteOffsets()` / `setRouteOffset()` / `resetRouteOffsets()`は鍵線の手動位置を管理し、
+`getLineJumpsEnabled()` / `setLineJumpsEnabled()`は交差ジャンプを切り替えます。各戦略は
+`setEdgePathRenderer()`へ登録され、ノード座標計算には関与しません。座標の単一・一括更新および
+ドラッグ時は`redrawEdges()`を通して選択中の経路、FK名、両端のカーディナリティを更新します。
 保存領域が利用不可または容量超過の場合は図の閲覧と線種切り替えを継続しながら画面上に失敗を表示し、
-`dbdef:er-edge-routing-storage-error`イベントを発火します。
+`dbdef:er-edge-routing-storage-error`イベントを発火します。鍵線位置は定義IDとグラフ構造ごとに保存し、
+`dbdef:er-route-offset-change`、`dbdef:er-route-offset-reset`、
+`dbdef:er-line-jumps-change`イベントで変更を通知します。
 
 配置操作は`window.dbdefErLayout` v1.0として分離され、`save()`、`restore()`、`reset()`、
 `getStorageKey()`、`getGraphFingerprint()`を公開します。`window.dbdefErAutoLayout` v1.0は

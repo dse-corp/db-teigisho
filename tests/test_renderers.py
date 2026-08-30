@@ -57,6 +57,8 @@ def test_renders_interactive_er_viewer_controls_and_extension_contract(
     assert 'data-er-action="zoom-in"' in html
     assert 'data-er-action="zoom-out"' in html
     assert 'data-er-action="fit"' in html
+    assert 'data-er-action="maximize"' in html
+    assert 'aria-controls="er-diagram"' in html
     assert 'data-er-action="auto-layout"' in html
     assert 'data-er-layout-direction="left-to-right"' in html
     assert 'data-er-layout-direction="top-to-bottom"' in html
@@ -80,6 +82,8 @@ def test_renders_interactive_er_viewer_controls_and_extension_contract(
     assert "dbdef:er-edge-routing-storage-error" in html
     assert "window.dbdefErLayout" in html
     assert "window.dbdefErAutoLayout" in html
+    assert "window.dbdefErMaximize" in html
+    assert "dbdef:er-maximize-change" in html
     assert "dbdef:er-node-position-change" in html
     assert "dbdef:er-edges-redrawn" in html
     assert 'id="dbdef-er-details"' in html

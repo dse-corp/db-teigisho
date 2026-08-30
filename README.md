@@ -4,6 +4,38 @@ Excelで管理していたテーブル定義書を、AIと人間の双方が扱�
 置き換えるPythonツールです。YAMLをSingle Source of Truth（SSOT）とし、JSON Schema、
 意味検証、HTML・Excel・PDF、CI向けmanifestを同じ定義から生成します。
 
+## CLIとして利用
+
+PyPIからインストールして、`dbdef`コマンドを利用できます。
+
+```bash
+pipx install db-teigisho
+dbdef --version
+dbdef validate path/to/definition.yaml
+```
+
+更新・削除は次のコマンドで行います。
+
+```bash
+pipx upgrade db-teigisho
+pipx uninstall db-teigisho
+```
+
+Python 3.11以上が必要です。`validate`、`schema`、Mermaidコード生成はPythonだけで
+動作します。HTML・XLSX・PDF・SVG・PNGを生成する場合は、Node.js 22.12以上を用意し、
+リポジトリまたは作業環境で`npm ci`を実行してください。
+
+## PyPIへの公開（メンテナ向け）
+
+PyPIのTrusted Publisherに、Organization `dse-corp`、Repository `db-teigisho`、
+Workflow `.github/workflows/publish-python.yml`、Environment `pypi`を登録します。
+登録後はバージョンと同じタグを`origin`へpushすると、品質検査後にPyPIへ公開されます。
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
 ## セットアップ
 
 ```bash

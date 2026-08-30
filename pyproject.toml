@@ -9,6 +9,19 @@ description = "YAML-first database definition validation and publishing"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
+authors = [{ name = "dse-corp" }]
+keywords = ["database", "database-definition", "yaml", "schema", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Database",
+]
 dependencies = [
   "Jinja2>=3.1,<4",
   "openpyxl>=3.1,<4",
@@ -18,8 +31,14 @@ dependencies = [
   "reportlab>=4.4,<5",
 ]
 
+[project.urls]
+Homepage = "https://github.com/dse-corp/db-teigisho"
+Repository = "https://github.com/dse-corp/db-teigisho"
+Issues = "https://github.com/dse-corp/db-teigisho/issues"
+
 [project.optional-dependencies]
 dev = [
+  "build>=1.2,<2",
   "mypy>=1.15,<2",
   "pytest>=8.3,<9",
   "pytest-cov>=6.1,<7",

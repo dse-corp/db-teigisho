@@ -128,6 +128,30 @@ const graph = {
         },
       ],
     },
+    {
+      id: "table_3",
+      physical_name: "products",
+      logical_name: "商品",
+      description: null,
+      indexes: [],
+      foreign_keys: [],
+      columns: [
+        {
+          id: "table_3_column_1",
+          physical_name: "product_id",
+          logical_name: "商品ID",
+          data_type: "uuid",
+          length: null,
+          scale: null,
+          default: null,
+          not_null: true,
+          unique: true,
+          primary_key: true,
+          description: null,
+          key_roles: ["PK"],
+        },
+      ],
+    },
   ],
   relationships: [
     {
@@ -146,6 +170,32 @@ const graph = {
         },
       ],
       parent_cardinality: "exactly_one",
+      child_cardinality: "zero_or_many",
+      relationship_type: "non_identifying",
+      on_update: "NO ACTION",
+      on_delete: "RESTRICT",
+      deferrable: false,
+    },
+    {
+      id: "relationship_2",
+      name: "fk_products_orders",
+      parent_table_id: "table_2",
+      child_table_id: "table_3",
+      column_pairs: [],
+      parent_cardinality: "exactly_one",
+      child_cardinality: "zero_or_many",
+      relationship_type: "non_identifying",
+      on_update: "NO ACTION",
+      on_delete: "RESTRICT",
+      deferrable: false,
+    },
+    {
+      id: "relationship_3",
+      name: "fk_customers_parent",
+      parent_table_id: "table_1",
+      child_table_id: "table_1",
+      column_pairs: [],
+      parent_cardinality: "zero_or_one",
       child_cardinality: "zero_or_many",
       relationship_type: "non_identifying",
       on_update: "NO ACTION",
@@ -234,12 +284,12 @@ after(async () => {
 
 test("renders graph data and switches all three display modes", async () => {
   assert.deepEqual(pageErrors, []);
-  assert.equal(await page.$$eval(".er-node", (nodes) => nodes.length), 2);
-  assert.equal(await page.$$eval(".er-edge", (edges) => edges.length), 1);
-  assert.equal(await page.$$eval(".er-column-row", (rows) => rows.length), 5);
+  assert.equal(await page.$$eval(".er-node", (nodes) => nodes.length), 3);
+  assert.equal(await page.$$eval(".er-edge", (edges) => edges.length), 3);
+  assert.equal(await page.$$eval(".er-column-row", (rows) => rows.length), 6);
 
   await page.click('[data-er-mode="keys"]');
-  assert.equal(await page.$$eval(".er-column-row", (rows) => rows.length), 3);
+  assert.equal(await page.$$eval(".er-column-row", (rows) => rows.length), 4);
   assert.equal(await page.$eval('[data-er-mode="keys"]', (button) => button.ariaPressed), "true");
 
   await page.click('[data-er-mode="tables"]');
@@ -318,6 +368,66 @@ test("opens table and column details by mouse with exact special values", async 
     "0",
   );
   assert.equal(await page.evaluate(() => document.activeElement.dataset.tableId), "table_2");
+});
+
+test("highlights the selected table, related tables, and connecting lines", async () => {
+  await page.evaluate(() => window.dbdefErViewer.setMode("all"));
+  await page.click('[data-table-id="table_1"] .er-node-physical');
+
+  const highlighted = await page.evaluate(() => ({
+    active: document.querySelector("#dbdef-er-viewer").classList.contains(
+      "er-relationship-selection-active",
+    ),
+    selected: document.querySelector('[data-table-id="table_1"]').className.baseVal,
+    related: document.querySelector('[data-table-id="table_2"]').className.baseVal,
+    unrelated: document.querySelector('[data-table-id="table_3"]').className.baseVal,
+    directEdge: document.querySelector(
+      '[data-relationship-id="relationship_1"]',
+    ).className.baseVal,
+    unrelatedEdge: document.querySelector(
+      '[data-relationship-id="relationship_2"]',
+    ).className.baseVal,
+    selfEdge: document.querySelector(
+      '[data-relationship-id="relationship_3"]',
+    ).className.baseVal,
+    directLabel: document.querySelector(
+      '[data-relationship-label-id="relationship_1"]',
+    ).className.baseVal,
+    unrelatedLabel: document.querySelector(
+      '[data-relationship-label-id="relationship_2"]',
+    ).className.baseVal,
+  }));
+  assert.equal(highlighted.active, true);
+  assert.match(highlighted.selected, /\ber-relationship-selected\b/);
+  assert.match(highlighted.related, /\ber-relationship-related\b/);
+  assert.match(highlighted.unrelated, /\ber-relationship-dimmed\b/);
+  assert.match(highlighted.directEdge, /\ber-relationship-connected\b/);
+  assert.match(highlighted.unrelatedEdge, /\ber-relationship-dimmed\b/);
+  assert.match(highlighted.selfEdge, /\ber-relationship-connected\b/);
+  assert.match(highlighted.directLabel, /\ber-relationship-connected\b/);
+  assert.match(highlighted.unrelatedLabel, /\ber-relationship-dimmed\b/);
+
+  await page.click('[data-column-id="table_1_column_1"] .er-column-name');
+  assert.equal(
+    await page.$eval(
+      "#dbdef-er-viewer",
+      (viewer) => viewer.querySelectorAll(
+        ".er-relationship-selected, .er-relationship-related, " +
+        ".er-relationship-connected, .er-relationship-dimmed",
+      ).length,
+    ),
+    0,
+  );
+
+  await page.click('[data-table-id="table_1"] .er-node-physical');
+  await page.click("#dbdef-er-details-close");
+  assert.equal(
+    await page.$eval(
+      "#dbdef-er-viewer",
+      (viewer) => viewer.classList.contains("er-relationship-selection-active"),
+    ),
+    false,
+  );
 });
 
 test("supports roving keyboard selection, ARIA linkage, Escape, and close", async () => {

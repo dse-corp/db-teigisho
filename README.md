@@ -21,9 +21,9 @@ pipx upgrade db-teigisho
 pipx uninstall db-teigisho
 ```
 
-Python 3.11以上が必要です。`validate`、`schema`、Mermaidコード生成はPythonだけで
-動作します。HTML・XLSX・PDF・SVG・PNGを生成する場合は、Node.js 22.12以上を用意し、
-リポジトリまたは作業環境で`npm ci`を実行してください。
+Python 3.11以上が必要です。Pythonパッケージのインストール後は、すべての形式を
+オフラインで生成できます。生成にNode.js・npm・Mermaid実行環境・ブラウザーは不要です。
+HTMLの位置調整・配置保存・線編集などには、閲覧ブラウザー内の同梱JavaScriptを使用します。
 
 ## PyPIへの公開（メンテナ向け）
 
@@ -39,10 +39,8 @@ git push origin v0.1.1
 ## セットアップ
 
 ```bash
-# Node.js 22.12+ が必要
 python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
-npm ci
 ```
 
 ## 基本操作
@@ -98,8 +96,11 @@ GitHub Copilotは既存の `.agents/skills/manage-db-definitions` に加え、�
 PDFにはNoto Sans JPを埋め込むため、CIや閲覧端末に日本語フォントがない場合も文字を表示できます。
 同梱フォントのライセンスは `src/db_teigisho/assets/OFL.txt` です。
 
-ER図はYAMLに定義されたFKから生成します。`npm ci`で固定されたMermaid CLIとPuppeteerを
-導入すると、外部CDNなしでSVG/PNGを生成します。HTMLでは埋め込みグラフデータからER図を
+ER図はYAMLに定義されたFKから生成します。共通のPython描画シーンからSVGとPillow PNGを
+直接出力し、PNGには同梱のNoto Sans JPを使用します。SVGは閲覧端末の日本語フォントを使用し、
+計測済みの文字幅を指定します。初期配置は循環をまとめて親子を層化し、同じノード寸法と座標を
+HTMLにも渡します。長い名前は折り返し、静的画像のFK名と列対応は番号付きの凡例に表示します。
+HTMLでは埋め込みグラフデータからER図を
 描画し、「全カラム」「PK・FKのみ」「テーブルのみ」の切り替え、リレーションの「曲線」「直線」
 「鍵線」の切り替え、ホイールまたはボタンでのズーム、背景ドラッグでのパン、テーブルのドラッグ
 による配置変更、「全体表示」、ER図をページ内で画面いっぱいに展開する「最大化」を利用できます。
@@ -117,10 +118,27 @@ Line jump設定は同じブラウザの`localStorage`へ保存され、再読み
 HTMLはランタイムをすべて同梱するため、`file:` URLかつオフラインで動作します。
 JavaScriptが無効な場合と印刷時には、埋め込み済みの静的SVGを表示します。
 PDFとXLSXには従来どおり全カラム表示を掲載します。参照元FK列がすべてNOT NULLなら親端を必須
-（`||`）、それ以外は任意（`|o`）とし、FKがUNIQUEまたは主キーと一致すれば子端を
-1（`||`）、それ以外は0以上の多（`o{`）とします。`ON DELETE CASCADE` またはFKが
+（`||`）、それ以外は任意（`|o`）とします。FK列集合が主キー、単一列UNIQUE、
+無条件UNIQUE indexのいずれかを含めば子端は0または1（`o|`）、それ以外は0以上の多（`o{`）
+です。一意性の判定は列順・ASC/DESCに依存せず、部分indexとINCLUDE列は一意キーに含めません。
+FKの列対応順は保持します。UNIQUEでも親から見た子の存在は保証されません。`ON DELETE CASCADE` またはFKが
 主キーの一部なら実線、それ以外は破線です。`--er-columns` は `all`、`keys`、`tables`
 を指定できます。`render --format svg|png` でも表示モードを指定できます。
+
+PNGは最大8000px/辺・1600万画素へ縮小します。縮小率が50%未満になる巨大な図は、
+読めるサイズで安全に出力できないためエラーにします。図を小さい定義へ分割してください。
+描画前には500テーブル、2000リレーション、テーブルメタデータ100万文字、図の最大辺10万単位
+の上限も検査します。固定されたPython/Pillow/フォント環境ではSVGとPNGの出力は決定的です。
+manifestの生成日時やPDF/XLSXの内部メタデータまで同一バイトであることは保証しません。
+
+### 開発時のブラウザーテスト
+
+Pythonの品質検査は `.venv/bin/ruff check .`、`.venv/bin/mypy`、`.venv/bin/pytest` です。
+HTML操作の回帰テストだけはNode.js 22.12以上とPuppeteer/Chromiumを利用します。
+`npm ci`、`npm test` の順に実行してください。これは開発時のテスト専用依存です。
+生成済みHTMLの画面とPython初期配置の整合性は、
+`.venv/bin/dbdef build examples/database-definition.yaml --output dist/browser-test` の後、
+`DBDEF_GENERATED_HTML=dist/browser-test/database-definition.html npm test` でも検証できます。
 
 自己完結HTMLには、`<script id="dbdef-er-graph" type="application/json">` として
 `format_version: "1.0"` のERグラフデータも埋め込みます。`tables` とその `columns`、

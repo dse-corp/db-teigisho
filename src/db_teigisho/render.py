@@ -49,6 +49,7 @@ from db_teigisho.diagram_render import (
 )
 from db_teigisho.er import ColumnDisplayMode, render_mermaid
 from db_teigisho.er_graph import build_er_graph
+from db_teigisho.er_scene import build_nodes, viewer_geometry
 from db_teigisho.loader import load_definition
 from db_teigisho.models import DatabaseDefinition, SqlObjectDefinition, TableDefinition
 
@@ -143,11 +144,12 @@ def render_html(
     _ensure_parent(output)
     environment = Environment(
         loader=PackageLoader("db_teigisho", "templates"),
-        autoescape=select_autoescape(("html", "xml")),
+        autoescape=select_autoescape(("html", "html.j2", "xml")),
         trim_blocks=True,
         lstrip_blocks=True,
     )
     rendered_diagrams = _all_er_diagrams(definition, diagrams)
+    graph = build_er_graph(definition)
     template = environment.get_template("definition.html.j2")
     output.write_text(
         template.render(
@@ -156,8 +158,9 @@ def render_html(
                 mode: _svg_data_uri(rendered_diagrams[mode].svg)
                 for mode in DEFAULT_ER_DIAGRAM_MODES
             },
-            er_graph_json=_html_script_json(
-                build_er_graph(definition).model_dump(mode="json")
+            er_graph_json=_html_script_json(graph.model_dump(mode="json")),
+            er_geometry_json=_html_script_json(
+                viewer_geometry(build_nodes(graph))
             ),
             er_definition_id=_er_definition_id(definition),
             tool_version=__version__,

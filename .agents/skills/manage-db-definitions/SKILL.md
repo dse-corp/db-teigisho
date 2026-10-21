@@ -50,6 +50,8 @@ Treat YAML as the only source of truth. Use the Python CLI for all validation an
 - Use `validate --json` when another program needs validation results.
 - Use `render --format html|xlsx|pdf|mermaid|svg|png --output <file>` only for a single explicitly requested format.
 - Use `render --format mermaid --er-columns all|keys|tables` to export an ER diagram code file.
-- Run `npm ci` before SVG/PNG, HTML, XLSX, or PDF rendering so the pinned Mermaid CLI is available.
+- Generate all formats offline with Python; no Node.js, Mermaid runtime, or browser is required.
+- Keep the bundled HTML JavaScript for interactive layout, storage, and edge editing.
+- Use `npm ci` and `npm test` only for development-time browser regression tests.
 - Use `build` for CI and review handoffs so `manifest.json` records SHA-256 checksums.
 - Describe YAML changes and validation evidence in the handoff. Do not claim a generated format is current unless it was rebuilt after the last YAML edit.

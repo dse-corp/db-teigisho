@@ -273,6 +273,7 @@
 
     <footer>SSOT: YAML / db-teigisho {{ tool_version }}</footer>
   </main>
+  <script id="dbdef-er-geometry" type="application/json">{{ er_geometry_json | safe }}</script>
   <script id="dbdef-er-graph" type="application/json">{{ er_graph_json | safe }}</script>
   <script>
 {% include "er_viewer.js" %}

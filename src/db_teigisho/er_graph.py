@@ -40,7 +40,7 @@ class RelationshipType(StrEnum):
 
 
 ParentCardinality = Literal[Cardinality.ZERO_OR_ONE, Cardinality.EXACTLY_ONE]
-ChildCardinality = Literal[Cardinality.EXACTLY_ONE, Cardinality.ZERO_OR_MANY]
+ChildCardinality = Literal[Cardinality.ZERO_OR_ONE, Cardinality.ZERO_OR_MANY]
 
 
 class GraphModel(BaseModel):
@@ -165,29 +165,20 @@ def _column_key_roles(
     return tuple(roles)
 
 
-def _local_columns(table: TableDefinition, foreign_key: ForeignKeyDefinition) -> list[str]:
-    by_name = {_key(column.physical_name): column.physical_name for column in table.columns}
-    return [by_name[_key(column_name)] for column_name in foreign_key.columns]
-
-
 def _is_unique_foreign_key(table: TableDefinition, foreign_key: ForeignKeyDefinition) -> bool:
-    foreign_columns = [_key(column_name) for column_name in foreign_key.columns]
-    primary_key_columns = [
-        _key(column.physical_name) for column in table.columns if column.primary_key
+    # Uniqueness is a set property. Do not reorder the FK's column_pairs: those
+    # encode positional local-to-parent mappings, independently of index order.
+    foreign_columns = {_key(name) for name in foreign_key.columns}
+    unique_keys = [
+        {_key(column.physical_name) for column in table.columns if column.primary_key},
+        *({_key(column.physical_name)} for column in table.columns if column.unique),
+        *(
+            {_key(column.name) for column in index.columns}
+            for index in table.indexes
+            if index.unique and index.where is None
+        ),
     ]
-    if foreign_columns == primary_key_columns:
-        return True
-    if len(foreign_columns) == 1:
-        column_name = _local_columns(table, foreign_key)[0]
-        return next(
-            column.unique for column in table.columns if column.physical_name == column_name
-        )
-    return any(
-        index.unique
-        and index.where is None
-        and [_key(column.name) for column in index.columns] == foreign_columns
-        for index in table.indexes
-    )
+    return any(key and key <= foreign_columns for key in unique_keys)
 
 
 def _is_identifying_foreign_key(
@@ -307,7 +298,7 @@ def _graph_relationships(
                 else Cardinality.ZERO_OR_ONE
             )
             child_cardinality: ChildCardinality = (
-                Cardinality.EXACTLY_ONE
+                Cardinality.ZERO_OR_ONE
                 if _is_unique_foreign_key(table, foreign_key)
                 else Cardinality.ZERO_OR_MANY
             )

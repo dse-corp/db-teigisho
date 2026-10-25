@@ -38,7 +38,7 @@ def test_infers_optional_and_one_to_one_cardinality_and_identifying_style(
     data["tables"][1]["columns"][1]["unique"] = True
     foreign_key["on_delete"] = "CASCADE"
     one_to_one = render_mermaid(_definition(data))
-    assert 'table_1 ||--|| table_2 : "fk_orders_customers"' in one_to_one
+    assert 'table_1 ||--o| table_2 : "fk_orders_customers"' in one_to_one
 
 
 def test_recognizes_composite_unique_indexes_and_pk_foreign_keys(
@@ -73,7 +73,7 @@ def test_recognizes_composite_unique_indexes_and_pk_foreign_keys(
 
     diagram = render_mermaid(_definition(data))
 
-    assert 'table_1 ||..|| table_2 : "fk_orders_customers"' in diagram
+    assert 'table_1 ||..o| table_2 : "fk_orders_customers"' in diagram
     assert 'uuid customer_id PK, FK "customer_id / 顧客ID"' in diagram
     assert 'varchar customer_email FK "customer_email / 顧客メールアドレス"' in diagram
 
@@ -142,9 +142,9 @@ def test_renders_self_references_cycles_and_safe_labels(valid_definition: dict[s
     diagram = render_mermaid(_definition(data))
 
     assert 'table_1["customers \'archive\' / 顧客 履歴"]' in diagram
-    assert 'table_1 ||--|| table_1 : "fk_customers_parent"' in diagram
+    assert 'table_1 ||--o| table_1 : "fk_customers_parent"' in diagram
     assert 'table_1 ||..o{ table_2 : "fk_orders_customers"' in diagram
-    assert 'table_2 ||--|| table_1 : "fk_customers_latest_order"' in diagram
+    assert 'table_2 ||--o| table_1 : "fk_customers_latest_order"' in diagram
 
 
 def test_rejects_unknown_column_display_mode(valid_definition: dict[str, Any]) -> None:

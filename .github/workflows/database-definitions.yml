@@ -20,15 +20,6 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7.0.0
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install Mermaid renderer
-        run: npm ci
-
       - name: Install package and development tools
         run: python -m pip install -e '.[dev]'
 
@@ -40,9 +31,6 @@ jobs:
 
       - name: Test with coverage
         run: pytest
-
-      - name: Test interactive ER viewer
-        run: npm test
 
       - name: Check committed JSON Schema
         run: dbdef schema --check schemas/db-definition.schema.json
@@ -60,3 +48,21 @@ jobs:
           path: dist/database-definition
           if-no-files-found: error
           retention-days: 30
+
+  browser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - run: dbdef build examples/database-definition.yaml --output dist/browser-test
+      - run: npm ci
+      - run: npm test
+        env:
+          DBDEF_GENERATED_HTML: dist/browser-test/database-definition.html

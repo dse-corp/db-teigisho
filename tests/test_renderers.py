@@ -234,3 +234,39 @@ def test_builds_all_ci_artifacts_with_sha256_manifest(
         artifact = output_dir / item["file"]
         assert artifact.is_file()
         assert item["sha256"] == hashlib.sha256(artifact.read_bytes()).hexdigest()
+
+
+def test_html_j2_autoescapes_text_attributes_and_sql(
+    valid_definition: dict[str, Any],
+    tmp_path: Path,
+) -> None:
+    from html.parser import HTMLParser
+
+    value = '"><img src=x onerror="alert(1)"> & </title><script>bad()</script>'
+    valid_definition["document"]["system_name"] = value
+    valid_definition["tables"][0]["physical_name"] = value
+    valid_definition["tables"][1]["foreign_keys"][0]["referenced_table"] = value
+    valid_definition["tables"][0]["description"] = value
+    valid_definition["tables"][0]["columns"][0]["logical_name"] = value
+    valid_definition["views"][0]["sql"] = value
+    output = tmp_path / "escaped.html"
+    render_html(DatabaseDefinition.model_validate(valid_definition), output)
+    html = output.read_text()
+    assert "&lt;img src=x onerror=&#34;alert(1)&#34;&gt;" in html
+    assert "&amp; &lt;/title&gt;&lt;script&gt;bad()&lt;/script&gt;" in html
+    assert "<script>bad()" not in html
+
+    class Parser(HTMLParser):
+        def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+            assert not any(name.startswith("on") for name, _ in attrs)
+            if tag == "img":
+                assert dict(attrs)["src"].startswith("data:image/svg+xml;base64,")  # type: ignore[union-attr]
+
+    Parser().feed(html)
+    payload = re.search(
+        r'<script id="dbdef-er-geometry" type="application/json">(.*?)</script>', html, re.DOTALL
+    )
+    assert payload is not None
+    geometry = json.loads(payload.group(1))
+    assert "<" not in payload.group(1)
+    assert geometry["modes"]["all"]["table_1"]["height"] > 0

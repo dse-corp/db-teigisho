@@ -74,7 +74,7 @@ def _relationship_line(relationship: GraphRelationship) -> str:
         Cardinality.EXACTLY_ONE: "||",
     }[relationship.parent_cardinality]
     child_cardinality = {
-        Cardinality.EXACTLY_ONE: "||",
+        Cardinality.ZERO_OR_ONE: "o|",
         Cardinality.ZERO_OR_MANY: "o{",
     }[relationship.child_cardinality]
     connector = (

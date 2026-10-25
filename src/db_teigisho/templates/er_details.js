@@ -339,8 +339,10 @@
           background.setAttribute("class", "er-column-selection-background");
           background.setAttribute("x", "1");
           background.setAttribute("y", divider.getAttribute("y1"));
-          background.setAttribute("width", "298");
-          background.setAttribute("height", "26");
+          background.setAttribute("width", String(
+            window.dbdefErViewer.getNodeSize(table.id, window.dbdefErViewer.getState().mode).width - 2,
+          ));
+          background.setAttribute("height", row.dataset.rowHeight || "26");
           row.insertBefore(background, row.firstChild);
         }
       });

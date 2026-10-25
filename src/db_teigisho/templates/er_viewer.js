@@ -46,7 +46,14 @@
   const nodeSizes = new Map();
   const edgeElements = new Map();
   const edgeLabelElements = new Map();
-  const nodePositions = createInitialNodePositions(graph.tables);
+  const geometryElement = document.querySelector("#dbdef-er-geometry");
+  const geometry = geometryElement ? JSON.parse(geometryElement.textContent) : null;
+  const nodePositions = geometry
+    ? new Map(graph.tables.map((table) => {
+      const node = geometry.modes.all[table.id];
+      return [table.id, { x: node.x, y: node.y }];
+    }))
+    : createInitialNodePositions(graph.tables);
   const state = {
     mode: "all",
     viewport: { scale: 1, x: 0, y: 0 },
@@ -111,6 +118,10 @@
     nodeElements.clear();
     nodeSizes.clear();
     graph.tables.forEach((table) => {
+      if (geometry) {
+        renderMeasuredNode(table);
+        return;
+      }
       const columns = visibleColumns(table);
       const height = HEADER_HEIGHT + columns.length * ROW_HEIGHT;
       const position = nodePositions.get(table.id);
@@ -179,6 +190,50 @@
       nodeElements.set(table.id, node);
       nodeSizes.set(table.id, { width: NODE_WIDTH, height });
     });
+  }
+
+  function renderMeasuredNode(table) {
+    const measured = geometry.modes[state.mode][table.id];
+    const position = nodePositions.get(table.id);
+    const node = createSvgElement("g", {
+      class: "er-node", "data-table-id": table.id, role: "group",
+      "aria-label": `${table.physical_name} / ${table.logical_name}`,
+      transform: `translate(${position.x} ${position.y})`,
+    });
+    node.append(createSvgElement("rect", {
+      class: "er-node-background", width: measured.width, height: measured.height, rx: 6,
+    }));
+    node.append(createSvgElement("rect", {
+      class: "er-node-header", width: measured.width, height: measured.header_height, rx: 6,
+    }));
+    const rows = new Map();
+    visibleColumns(table).forEach((column, index) => {
+      const y = measured.dividers[index];
+      const bottom = measured.dividers[index + 1] ?? measured.height;
+      const row = createSvgElement("g", {
+        class: "er-column-row", "data-column-id": column.id, "data-row-height": bottom - y,
+      });
+      row.append(createSvgElement("line", {
+        class: "er-node-divider", x1: 0, x2: measured.width, y1: y, y2: y,
+      }));
+      rows.set(column.id, row);
+      node.append(row);
+    });
+    measured.texts.forEach((text) => {
+      const element = appendText(rows.get(text.column_id) || node, text.value, {
+        class: text.css_class, x: text.x, y: text.y,
+      });
+      if (text.value) {
+        element.setAttribute("textLength", String(text.width));
+        element.setAttribute("lengthAdjust", "spacingAndGlyphs");
+      }
+      // Use the scene's measurements even when local CSS or fonts differ.
+      element.setAttribute("style",
+        `font: ${text.size}px 'Noto Sans JP', sans-serif; fill: ${text.color}`);
+    });
+    nodesLayer.append(node);
+    nodeElements.set(table.id, node);
+    nodeSizes.set(table.id, { width: measured.width, height: measured.height });
   }
 
   function formatColumnType(column) {
@@ -450,6 +505,10 @@
     }
     if (!MODES.has(mode)) {
       throw new TypeError(`Unknown ER column display mode: ${mode}`);
+    }
+    if (geometry) {
+      const measured = geometry.modes[mode][tableId];
+      return { width: measured.width, height: measured.height };
     }
     return {
       width: NODE_WIDTH,

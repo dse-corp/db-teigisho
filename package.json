@@ -4,7 +4,6 @@
     "test": "node --test tests/test_er_*.mjs"
   },
   "devDependencies": {
-    "@mermaid-js/mermaid-cli": "11.16.0",
     "puppeteer": "25.9.0"
   }
 }

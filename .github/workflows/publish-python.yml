@@ -21,15 +21,6 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v7.0.0
-        with:
-          node-version: "22"
-          cache: npm
-
-      - name: Install Mermaid renderer
-        run: npm ci
-
       - name: Install package and development tools
         run: python -m pip install -e '.[dev]'
 
@@ -38,7 +29,6 @@ jobs:
           ruff check .
           mypy
           pytest
-          npm test
           dbdef schema --check schemas/db-definition.schema.json
           dbdef validate examples
           dbdef build examples/database-definition.yaml --output /tmp/db-teigisho-definition-artifacts
@@ -66,7 +56,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: build
+    needs: [build, browser-tests]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -82,3 +72,21 @@ jobs:
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@v1.14.2
+
+  browser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.0.0
+        with:
+          node-version: "22"
+          cache: npm
+      - uses: actions/setup-python@v7.0.0
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - run: dbdef build examples/database-definition.yaml --output dist/browser-test
+      - run: npm ci
+      - run: npm test
+        env:
+          DBDEF_GENERATED_HTML: dist/browser-test/database-definition.html

@@ -1,214 +1,122 @@
 # db-teigisho
 
-Excelで管理していたテーブル定義書を、AIと人間の双方が扱いやすいYAML-firstの成果物へ
-置き換えるPythonツールです。YAMLをSingle Source of Truth（SSOT）とし、JSON Schema、
-意味検証、HTML・Excel・PDF、CI向けmanifestを同じ定義から生成します。
+YAMLでデータベース定義を管理し、検証と定義書の生成を行うPythonツールです。テーブル、カラム、インデックス、外部キー、ビュー、ストアドプロシージャを記述すると、HTML・Excel・PDFの定義書とER図を生成します。
 
-## CLIとして利用
+定義内容の正本（Single Source of Truth、SSOT）はYAMLです。変更はYAMLに反映し、配布用のファイルはコマンドで再生成します。実データベースへの接続、DDLの生成、マイグレーションの実行は行いません。
 
-PyPIからインストールして、`dbdef`コマンドを利用できます。
+初めて使う場合は「インストールして定義書を生成する」まで進めてください。項目の詳細や開発手順は、次の文書から参照できます。
+
+| 目的 | 参照先 |
+| --- | --- |
+| YAMLを作成・編集する | [YAML項目ガイド](.agents/skills/manage-db-definitions/references/field-guide.md) |
+| 記述例を確認する | [基本サンプル](examples/database-definition.yaml)、[ECサイトの定義例](definitions/ecommerce.yaml) |
+| ER図を操作する・表記ルールを確認する | [ER図の操作と仕様](docs/er-diagrams.md) |
+| ツールを開発・検証・公開する | [開発と自動検証](docs/development.md) |
+| AIエージェントで定義を編集する | [manage-db-definitions Skill](.agents/skills/manage-db-definitions/SKILL.md) |
+
+## インストールして定義書を生成する
+
+Python 3.11以上が必要です。CLIとして利用する場合は、`pipx`でインストールします。
 
 ```bash
 pipx install db-teigisho
 dbdef --version
-dbdef validate path/to/definition.yaml
 ```
 
-更新・削除は次のコマンドで行います。
+更新には`pipx upgrade db-teigisho`、削除には`pipx uninstall db-teigisho`を使います。
+
+以下は、このリポジトリのルートで実行する例です。インストールしたCLIを別の場所で使う場合は、入力パスを手元のYAMLに置き換えてください。
 
 ```bash
-pipx upgrade db-teigisho
-pipx uninstall db-teigisho
+# 基本サンプルを検証する
+dbdef validate examples/database-definition.yaml
+
+# 定義書とER図を一括生成する
+dbdef build examples/database-definition.yaml --output dist/database-definition
 ```
 
-Python 3.11以上が必要です。Pythonパッケージのインストール後は、すべての形式を
-オフラインで生成できます。生成にNode.js・npm・Mermaid実行環境・ブラウザーは不要です。
-HTMLの位置調整・配置保存・線編集などには、閲覧ブラウザー内の同梱JavaScriptを使用します。
-
-## PyPIへの公開（メンテナ向け）
-
-PyPIのTrusted Publisherに、Organization `dse-corp`、Repository `db-teigisho`、
-Workflow `.github/workflows/publish-python.yml`、Environment `pypi`を登録します。
-登録後はバージョンと同じタグを`origin`へpushすると、品質検査後にPyPIへ公開されます。
+生成された`dist/database-definition/database-definition.html`をブラウザーで開くと、定義書と操作可能なER図を確認できます。ECサイトの定義例を使う場合は、次のように実行します。
 
 ```bash
-git tag v0.1.1
-git push origin v0.1.1
+dbdef build definitions/ecommerce.yaml --output dist/ecommerce
 ```
 
-## セットアップ
+パッケージのインストール後は、すべての形式をオフラインで生成できます。生成にNode.js、Mermaid実行環境、ブラウザーは不要です。HTMLのER図操作には、閲覧ブラウザー上で同梱のJavaScriptを使います。
+
+## YAMLを編集し、検証してから再生成する
+
+[基本サンプル](examples/database-definition.yaml)をコピーし、[YAML項目ガイド](.agents/skills/manage-db-definitions/references/field-guide.md)に沿って編集します。`format_version`は`"1.0"`を使います。定義を変更したら`document.updated_at`も更新し、既存の物理名は改名が必要な場合にだけ変更してください。
+
+```bash
+# 複数のファイルやディレクトリをまとめて検証する
+dbdef validate definitions examples
+
+# プログラムから読み取るため、JSONで結果を出す
+dbdef validate definitions --json
+```
+
+ディレクトリを指定すると、配下の`*.yaml`と`*.yml`を再帰的に検証します。JSON出力は、ファイルごとの`path`、`valid`、`errors`を持つ配列です。検証エラーがあれば終了コードは`1`になります。
+
+検証では、必須項目や未対応のフィールドに加え、名前の重複、PK列のNOT NULL、インデックスやFKの参照先などを確認します。SQL構文、データ型の妥当性、FK参照先の一意性など、DBMSに依存する内容は別途レビューしてください。
+
+YAMLの検証が通ったら`build`を実行します。生成済みファイルを直接編集しても、次の生成で上書きされます。
+
+## 必要な形式だけを出力する
+
+`render`は1形式、`build`は全6形式とmanifestを生成します。どちらも入力YAMLを読み込む際に検証します。
+
+```bash
+dbdef render examples/database-definition.yaml --format html --output dist/definition.html
+dbdef render examples/database-definition.yaml --format xlsx --output dist/definition.xlsx
+dbdef render examples/database-definition.yaml --format pdf --output dist/definition.pdf
+
+# PK・FK列だけを含むMermaidコード
+dbdef render examples/database-definition.yaml --format mermaid --er-columns keys --output dist/definition.mmd
+
+# テーブル名だけのSVGと、全カラムを含むPNG
+dbdef render examples/database-definition.yaml --format svg --er-columns tables --output dist/definition.svg
+dbdef render examples/database-definition.yaml --format png --output dist/definition.png
+```
+
+`--er-columns`は`mermaid`、`svg`、`png`に適用されます。値は`all`（既定、全カラム）、`keys`（PK・FK列）、`tables`（テーブル名のみ）です。HTMLは閲覧時に表示を切り替え、XLSXとPDFには全カラムのER図を掲載します。
+
+## 一括生成で出力されるファイル
+
+`dbdef build <入力YAML> --output <出力ディレクトリ>`は、入力ファイルの拡張子を除いた名前を使って、次のファイルを生成します。
+
+| ファイル | 内容 |
+| --- | --- |
+| `<入力名>.html` | 目次、文書・DBMS情報、ER図、テーブル一覧、各定義、SQL本文を収録した自己完結HTML |
+| `<入力名>.xlsx` | 文書情報、テーブル一覧、ER図、各テーブル、ビュー、ストアドプロシージャの各シート |
+| `<入力名>.pdf` | 表紙、ER図、テーブル一覧、各定義、SQL本文を収録したPDF |
+| `<入力名>.mmd` | FKから生成したMermaid ER図コード |
+| `<入力名>.svg` / `<入力名>.png` | 全カラムを表示するER図の画像 |
+| `manifest.json` | 入力と各成果物のSHA-256、成果物のバイト数、生成日時、ツールバージョン |
+
+PDFにはNoto Sans JPを埋め込み、PNGの描画にも同じフォントを使います。SVGは閲覧端末の日本語フォントを使用します。同梱フォントのライセンスは[OFL.txt](src/db_teigisho/assets/OFL.txt)を参照してください。
+
+同じ出力ディレクトリで再生成すると、同名の成果物と`manifest.json`を上書きします。複数の定義書を管理する場合は、上の例のように出力先を分けてください。
+
+## ソースコードから利用する
+
+リポジトリのルートで仮想環境を作り、開発用の依存関係をインストールします。
 
 ```bash
 python3 -m venv .venv
 .venv/bin/pip install -e '.[dev]'
+.venv/bin/dbdef validate definitions examples
+.venv/bin/dbdef build examples/database-definition.yaml --output dist/database-definition
 ```
 
-## 基本操作
+テストやCI、PyPI公開の手順は[開発と自動検証](docs/development.md)にまとめています。
 
-```bash
-# YAML定義書を検証
-.venv/bin/dbdef validate definitions/example.yaml
+文書内の略語は次の意味で使っています。
 
-# HTML・Excel・PDFとmanifestを一括生成
-.venv/bin/dbdef build definitions/example.yaml --output dist
-
-# Mermaid ER図コードを全カラム表示で生成
-.venv/bin/dbdef render definitions/example.yaml --format mermaid --output dist/database-definition.mmd
-
-# Mermaid ER図コードをPK/FKだけの表示で生成
-.venv/bin/dbdef render definitions/example.yaml --format mermaid --er-columns keys --output dist/database-definition.mmd
-
-# レンダリング済みSVG/PNGを出力
-.venv/bin/dbdef render definitions/example.yaml --format svg --er-columns tables --output dist/database-definition.svg
-.venv/bin/dbdef render definitions/example.yaml --format png --output dist/database-definition.png
-
-# JSON Schemaの再生成と、コミット済みSchemaのドリフト検査
-.venv/bin/dbdef schema --output schemas/db-definition.schema.json
-.venv/bin/dbdef schema --check schemas/db-definition.schema.json
-```
-
-YAMLの全項目は [examples/database-definition.yaml](examples/database-definition.yaml)、
-AIエージェントによる作成・編集手順は
-[.agents/skills/manage-db-definitions/SKILL.md](.agents/skills/manage-db-definitions/SKILL.md)
-を参照してください。
-
-### GitHub Copilot向けSkill
-
-GitHub Copilotは既存の `.agents/skills/manage-db-definitions` に加え、次の用途別Skillを利用できます。
-
-- `.github/skills/review-db-definitions`: YAML定義書とPull Requestのレビュー
-- `.github/skills/publish-db-definitions`: HTML・XLSX・PDF・manifestの生成
-- `.github/skills/evolve-dbdef-tooling`: Schema、検証器、CLI、レンダラーの変更
-
-リポジトリ全体のCopilot指示は `.github/copilot-instructions.md` にあります。
-
-## 出力
-
-`dbdef build` は次のファイルを出力します。
-
-- `<入力名>.html`: ズーム・パン・表示モード切り替え・最大化と詳細パネルを備えたER図、テーブル一覧、各定義を検索・印刷できる自己完結HTML
-- `<入力名>.xlsx`: 文書情報、テーブル一覧、レンダリング済みER図、各テーブル、ビュー、ストアドプロシージャの各シート
-- `<入力名>.pdf`: 表紙、レンダリング済みER図、テーブル一覧、各定義を収録した配布・レビュー用PDF
-- `<入力名>.mmd`: FK制約から推論したMermaid ER Diagramコード
-- `<入力名>.svg` / `<入力名>.png`: 全カラム表示のレンダリング済みER図
-- `manifest.json`: 入力と各成果物のSHA-256、生成日時、ツールバージョン
-
-PDFにはNoto Sans JPを埋め込むため、CIや閲覧端末に日本語フォントがない場合も文字を表示できます。
-同梱フォントのライセンスは `src/db_teigisho/assets/OFL.txt` です。
-
-ER図はYAMLに定義されたFKから生成します。共通のPython描画シーンからSVGとPillow PNGを
-直接出力し、PNGには同梱のNoto Sans JPを使用します。SVGは閲覧端末の日本語フォントを使用し、
-計測済みの文字幅を指定します。初期配置は循環をまとめて親子を層化し、同じノード寸法と座標を
-HTMLにも渡します。長い名前は折り返し、静的画像のFK名と列対応は番号付きの凡例に表示します。
-HTMLでは埋め込みグラフデータからER図を
-描画し、「全カラム」「PK・FKのみ」「テーブルのみ」の切り替え、リレーションの「曲線」「直線」
-「鍵線」の切り替え、ホイールまたはボタンでのズーム、背景ドラッグでのパン、テーブルのドラッグ
-による配置変更、「全体表示」、ER図をページ内で画面いっぱいに展開する「最大化」を利用できます。
-最大化中は背景スクロールを抑止し、Escapeまたは「元に戻す」で通常表示へ戻せます。鍵線は中央の水平・垂直セグメントをドラッグまたは
-矢印キーで移動でき、交差箇所を判別するLine jumpをOn/Offできます。線種は再生成せず即時反映され、
-自己参照、同一テーブル間の複数FK、双方向参照は経路をずらしてFK名を判別できます。
-FKの親子関係を層化した決定的な自動配置は「左→右」と「上→下」を切り替えられ、循環参照や
-自己参照、孤立テーブル、複数の連結成分も重ならないよう配置してからER図全体を表示します。
-テーブルを選択すると、選択テーブル、直接関連するテーブル、接続線を強調し、関連外の要素を
-薄く表示します。テーブルまたはカラムの選択時は、インデックス、外部キー、制約、defaultを含む
-詳細パネルを表示します。矢印キーで選択候補を移動し、EnterまたはSpaceで選択、Escapeまたは
-閉じるボタンで閉じられます。倍率は5%から300%の範囲です。変更した配置、選択した線種、鍵線位置、
-Line jump設定は同じブラウザの`localStorage`へ保存され、再読み込み時に復元されます。
-「配置をリセット」で保存済み配置と鍵線位置を破棄して初期状態へ戻せます。
-HTMLはランタイムをすべて同梱するため、`file:` URLかつオフラインで動作します。
-JavaScriptが無効な場合と印刷時には、埋め込み済みの静的SVGを表示します。
-PDFとXLSXには従来どおり全カラム表示を掲載します。参照元FK列がすべてNOT NULLなら親端を必須
-（`||`）、それ以外は任意（`|o`）とします。FK列集合が主キー、単一列UNIQUE、
-無条件UNIQUE indexのいずれかを含めば子端は0または1（`o|`）、それ以外は0以上の多（`o{`）
-です。一意性の判定は列順・ASC/DESCに依存せず、部分indexとINCLUDE列は一意キーに含めません。
-FKの列対応順は保持します。UNIQUEでも親から見た子の存在は保証されません。`ON DELETE CASCADE` またはFKが
-主キーの一部なら実線、それ以外は破線です。`--er-columns` は `all`、`keys`、`tables`
-を指定できます。`render --format svg|png` でも表示モードを指定できます。
-
-PNGは最大8000px/辺・1600万画素へ縮小します。縮小率が50%未満になる巨大な図は、
-読めるサイズで安全に出力できないためエラーにします。図を小さい定義へ分割してください。
-描画前には500テーブル、2000リレーション、テーブルメタデータ100万文字、図の最大辺10万単位
-の上限も検査します。固定されたPython/Pillow/フォント環境ではSVGとPNGの出力は決定的です。
-manifestの生成日時やPDF/XLSXの内部メタデータまで同一バイトであることは保証しません。
-
-### 開発時のブラウザーテスト
-
-Pythonの品質検査は `.venv/bin/ruff check .`、`.venv/bin/mypy`、`.venv/bin/pytest` です。
-HTML操作の回帰テストだけはNode.js 22.12以上とPuppeteer/Chromiumを利用します。
-`npm ci`、`npm test` の順に実行してください。これは開発時のテスト専用依存です。
-生成済みHTMLの画面とPython初期配置の整合性は、
-`.venv/bin/dbdef build examples/database-definition.yaml --output dist/browser-test` の後、
-`DBDEF_GENERATED_HTML=dist/browser-test/database-definition.html npm test` でも検証できます。
-
-自己完結HTMLには、`<script id="dbdef-er-graph" type="application/json">` として
-`format_version: "1.0"` のERグラフデータも埋め込みます。`tables` とその `columns`、
-`relationships` はYAMLの定義順を維持し、各カラムの制約と `key_roles`（`PK`、`UK`、`FK`）、
-各テーブルの `indexes` と `foreign_keys`、複合FKの `column_pairs`、両端のcardinality、
-`identifying` / `non_identifying` を収録します。
-ブラウザでは要素の `textContent` を `JSON.parse` して取得できます。Pythonから同じ契約を
-利用する場合は `db_teigisho.er_graph.build_er_graph` を呼び出します。
-
-### HTML ERビューアの拡張API
-
-生成HTMLは `window.dbdefErViewer` にバージョン付きAPIを公開します。`getState()` /
-`setViewState()` は表示モード、ビューポート、全ノード座標を共有し、`setNodePosition()` /
-`setNodePositions()` はドラッグ操作や自動配置から座標を更新します。座標更新後は
-`redrawEdges()` が利用する同じ経路でリレーションを再描画します。
-
-後続機能向けの主な境界は次のとおりです。
-
-| 境界 | 用途 |
+| 略語 | 意味 |
 | --- | --- |
-| `getGraph()` / `getState()` | 埋め込みグラフと現在のビュー状態をコピーとして取得 |
-| `setMode(mode)` / `setViewport(viewport)` / `fitToView()` | 表示モードとズーム・パン状態を更新 |
-| `getNodePosition(tableId)` / `setNodePosition(tableId, position)` | 単一ノードの座標を取得・更新 |
-| `getNodeSize(tableId, mode)` | 指定表示モード（既定は全カラム）のノード寸法を取得 |
-| `setNodePositions(positions)` | 配置アルゴリズムや保存済み配置から複数座標を一括更新 |
-| `redrawEdges()` | 現在のノード座標とサイズから全エッジを再描画 |
-| `setEdgePathRenderer(renderer)` | エッジ経路戦略を差し替え（`null` で既定へ復帰） |
-| `screenToGraphPoint(clientX, clientY)` | ポインター座標をグラフ座標へ変換 |
+| PK | 主キー |
+| FK | 外部キー |
+| UK | 一意キー |
+| DBMS | データベース管理システム |
 
-ビューア要素 `#dbdef-er-viewer` は
-`dbdef:er-view-change`、`dbdef:er-node-position-change`、
-`dbdef:er-edges-redrawn`、`dbdef:er-selection-change` の各`CustomEvent`を発火します。
-ノードDOMには `data-table-id`、カラム行には `data-column-id`、エッジDOMには
-`data-relationship-id`があります。選択対象は `aria-selected` と
-`aria-controls="dbdef-er-details"` で単一の詳細パネルへ関連付けられます。
-
-線種切り替えは`window.dbdefErEdgeRouting` v2.0として分離され、
-`getRoutingMode()` / `setRoutingMode(mode)`で`curve`、`straight`、`orthogonal`を取得・設定できます。
-`getRouteOffsets()` / `setRouteOffset()` / `resetRouteOffsets()`は鍵線の手動位置を管理し、
-`getLineJumpsEnabled()` / `setLineJumpsEnabled()`は交差ジャンプを切り替えます。各戦略は
-`setEdgePathRenderer()`へ登録され、ノード座標計算には関与しません。座標の単一・一括更新および
-ドラッグ時は`redrawEdges()`を通して選択中の経路、FK名、両端のカーディナリティを更新します。
-保存領域が利用不可または容量超過の場合は図の閲覧と線種切り替えを継続しながら画面上に失敗を表示し、
-`dbdef:er-edge-routing-storage-error`イベントを発火します。鍵線位置は定義IDとグラフ構造ごとに保存し、
-`dbdef:er-route-offset-change`、`dbdef:er-route-offset-reset`、
-`dbdef:er-line-jumps-change`イベントで変更を通知します。
-
-配置操作は`window.dbdefErLayout` v1.0として分離され、`save()`、`restore()`、`reset()`、
-`getStorageKey()`、`getGraphFingerprint()`を公開します。`window.dbdefErAutoLayout` v1.0は
-`run()`、`setDirection()`、`calculate()`を公開し、計算と座標適用を分けて拡張できます。
-保存キーは文書・データベース識別情報
-のSHA-256と、テーブル・カラム・リレーション構造のフィンガープリントを含みます。構造変更時は
-同じ定義書の過去配置から物理名が一致するテーブルだけを復元します。新規テーブルは初期位置を
-基点に、復元済みテーブルと重なる場合だけ空き位置へ移してから全体表示します。保存領域が利用不可
-または容量超過の場合は、図の閲覧とドラッグを継続しながら画面上に保存失敗を表示し、
-`dbdef:er-layout-storage-error`イベントも発火します。
-
-最大化操作は`window.dbdefErMaximize` v1.0として公開され、`isMaximized()`、
-`setMaximized()`、`maximize()`、`restore()`、`toggle()`でページ内表示を切り替えられます。
-ビューア要素は`dbdef:er-maximize-change`イベントを発火し、`detail.maximized`と
-`detail.reason`を提供します。
-
-## 自動検証
-
-- `.pre-commit-config.yaml`: `definitions/**/*.yaml` をコミット前に検証
-- `.codex/hooks.json`: Codexが定義YAMLを編集した直後に検証
-- `.github/hooks/database-definitions.json`: GitHub CopilotがYAMLを編集した直後とタスク完了前に検証
-- `.github/workflows/copilot-setup-steps.yml`: Copilot cloud agentへPython依存関係を事前導入
-- `.github/workflows/database-definitions.yml`: テスト、Schemaドリフト、YAML検証、成果物アップロード
-
-リポジトリのCodex hookは初回のみ `/hooks` で内容を確認し、信頼してください。
-Copilot hookは編集後に検証結果をコンテキストへ返し、定義が不正な場合は完了前に修正を1回要求します。
-無限継続を避けるため、再試行後はCIの検証を最終ゲートとします。
+手順で解決しない問題は、実行コマンドとエラー内容を添えて[Issues](https://github.com/dse-corp/db-teigisho/issues)へ報告してください。

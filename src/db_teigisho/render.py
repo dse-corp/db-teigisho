@@ -6,6 +6,7 @@ import hashlib
 import html
 import json
 import math
+import os
 import re
 from base64 import b64encode
 from collections.abc import Mapping
@@ -51,7 +52,7 @@ from db_teigisho.er import ColumnDisplayMode, render_mermaid
 from db_teigisho.er_graph import build_er_graph
 from db_teigisho.er_scene import build_nodes, viewer_geometry, wrap_text
 from db_teigisho.er_xlsx import ExcelErDrawing, build_er_drawing, save_with_er_drawing
-from db_teigisho.loader import load_definition
+from db_teigisho.loader import load_definition_sources
 from db_teigisho.models import DatabaseDefinition, SqlObjectDefinition, TableDefinition
 
 _BRAND = "124E78"
@@ -826,7 +827,8 @@ def _sha256(path: Path) -> str:
 def build_artifacts(source: Path, output_dir: Path) -> Path:
     """Validate once, render every format, and write a checksum manifest."""
 
-    definition = load_definition(source)
+    loaded = load_definition_sources(source)
+    definition = loaded.definition
     output_dir.mkdir(parents=True, exist_ok=True)
     stem = source.stem
     artifacts = {
@@ -848,7 +850,11 @@ def build_artifacts(source: Path, output_dir: Path) -> Path:
         "format_version": "1.0",
         "generated_at": datetime.now(UTC).isoformat(),
         "generator": {"name": "db-teigisho", "version": __version__},
-        "source": {"file": source.name, "sha256": _sha256(source)},
+        "source": {"file": source.name, "sha256": loaded.sources[0].sha256},
+        "sources": [
+            {"file": os.path.relpath(item.path, source.resolve().parent), "sha256": item.sha256}
+            for item in loaded.sources
+        ],
         "artifacts": [
             {
                 "format": format_name,

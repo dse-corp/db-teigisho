@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../../../schemas/db-definition.schema.json#/$defs/TableDefinition
+physical_name: orders
+logical_name: 受注
+description: 顧客から受け付けた受注を管理する。
+columns:
+- physical_name: order_id
+  logical_name: 受注ID
+  data_type: bigint
+  not_null: true
+  unique: false
+  primary_key: true
+- physical_name: customer_id
+  logical_name: 顧客ID
+  data_type: uuid
+  not_null: true
+  unique: false
+  primary_key: false
+- physical_name: amount
+  logical_name: 合計金額
+  data_type: numeric
+  length: 18
+  scale: 2
+  default: 0
+  not_null: true
+  unique: false
+  primary_key: false
+indexes:
+- name: idx_orders_customer
+  type: btree
+  unique: false
+  columns:
+  - name: customer_id
+    order: ASC
+  include_columns:
+  - amount
+  where: amount > 0
+foreign_keys:
+- name: fk_orders_customers
+  columns:
+  - customer_id
+  referenced_table: customers
+  referenced_columns:
+  - customer_id
+  on_update: NO ACTION
+  on_delete: RESTRICT
+  deferrable: false

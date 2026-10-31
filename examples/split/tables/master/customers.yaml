@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../../../../schemas/db-definition.schema.json#/$defs/TableDefinition
+physical_name: customers
+logical_name: 顧客
+description: 顧客の基本情報を管理する。
+columns:
+- physical_name: customer_id
+  logical_name: 顧客ID
+  data_type: uuid
+  default: gen_random_uuid()
+  not_null: true
+  unique: true
+  primary_key: true
+  description: 顧客を一意に識別するID。
+- physical_name: email
+  logical_name: メールアドレス
+  data_type: varchar
+  length: 320
+  not_null: true
+  unique: true
+  primary_key: false
+indexes:
+- name: idx_customers_email
+  type: btree
+  unique: true
+  columns:
+  - name: email
+    order: ASC
+  include_columns: []
+foreign_keys: []

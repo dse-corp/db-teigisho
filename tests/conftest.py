@@ -138,3 +138,22 @@ def definition_file(tmp_path: Path, valid_definition: dict[str, Any]) -> Path:
         encoding="utf-8",
     )
     return path
+
+
+@pytest.fixture
+def split_definition_file(tmp_path: Path, valid_definition: dict[str, Any]) -> Path:
+    parent = tmp_path / "catalog" / "database.yaml"
+    parent.parent.mkdir()
+    references = []
+    for table, relative in zip(
+        valid_definition["tables"],
+        ("../tables/customer/master.yaml", "sales/nested/orders.yml"),
+        strict=True,
+    ):
+        child = parent.parent / relative
+        child.parent.mkdir(parents=True, exist_ok=True)
+        child.write_text(yaml.safe_dump(table, allow_unicode=True), encoding="utf-8")
+        references.append({"physical_name": table["physical_name"], "$ref": relative})
+    valid_definition["tables"] = references
+    parent.write_text(yaml.safe_dump(valid_definition, allow_unicode=True), encoding="utf-8")
+    return parent

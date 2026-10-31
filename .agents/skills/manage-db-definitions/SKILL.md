@@ -10,6 +10,7 @@ Treat YAML as the only source of truth. Use the Python CLI for all validation an
 ## Workflow
 
 1. Read the target YAML and `examples/database-definition.yaml` before changing structure. Read [field-guide.md](references/field-guide.md) when adding an object or choosing a field.
+   For split definitions, read the parent and every referenced table YAML. Use `physical_name` plus `$ref` (a local YAML path relative to the parent) in `tables`; each referenced file contains one `TableDefinition` mapping. Keep names identical and validate the parent after editing any child. See `examples/split/catalog/database.yaml`.
 2. Preserve `format_version` and existing physical names unless the request explicitly includes a rename. Keep timestamps as ISO 8601 values with offsets and update `document.updated_at` for content changes.
 3. Edit only YAML for definition content. Never hand-edit generated HTML, XLSX, PDF, manifest, or `schemas/db-definition.schema.json`.
 4. Run validation immediately after every logical edit:
@@ -39,7 +40,7 @@ Treat YAML as the only source of truth. Use the Python CLI for all validation an
 - Keep table, column, index, foreign-key, view, and stored-procedure physical names unique in their scopes.
 - Set `not_null: true` on every primary-key column.
 - Reference only existing local columns from indexes and foreign keys.
-- Reference a table and columns present in the same YAML document from each foreign key.
+- Reference a table and columns present in the same resolved parent document (including referenced files) from each foreign key.
 - Match local and referenced foreign-key column counts.
 - Use `SET NULL` only when every affected local column permits null.
 - Set `scale` only with `length`, and never make it greater than `length`.

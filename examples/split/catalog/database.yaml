@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../../../schemas/db-definition.schema.json
+format_version: "1.0"
+
+document:
+  project_number: PJ-001
+  system_name: 受注管理システム
+  subsystem_name: 受注API
+  created_at: "2026-08-01T09:00:00+09:00"
+  updated_at: "2026-10-31T09:00:00+09:00"
+
+database:
+  dbms_name: PostgreSQL
+  dbms_version: "17.5"
+  server_name: db.example.internal
+  port: 5432
+  database_name: orders
+  schema_name: public
+  collation: ja_JP.UTF-8
+
+tables:
+  - physical_name: customers
+    $ref: ../tables/master/customers.yaml
+  - physical_name: orders
+    $ref: ../tables/sales/orders.yaml
+
+views:
+  - physical_name: customer_order_totals
+    logical_name: 顧客別受注金額
+    description: 顧客単位の受注金額を集計する。
+    sql: |
+      SELECT
+          customer_id,
+          SUM(amount) AS total
+      FROM orders
+      GROUP BY customer_id;
+
+stored_procedures:
+  - physical_name: close_orders
+    logical_name: 受注締め処理
+    description: 対象日までの受注を締める。
+    sql: |
+      CREATE PROCEDURE close_orders(IN closing_date date)
+      LANGUAGE SQL
+      AS $$
+          SELECT closing_date;
+      $$;
+

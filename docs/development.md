@@ -63,7 +63,7 @@ XLSXのER図は、セルをopenpyxlで保存した後、生成したDrawingMLを
 
 変更時は基本サンプルと`definitions/ecommerce.yaml`をビルドし、Windows版・Mac版Excelで、グループ移動への接続線・ラベルの追従、内部テキストの編集、線の調整、保存・再読込、印刷を確認してください。XMLやZIPの検査はExcelでの操作確認の代わりにはなりません。実装時の検証記録と実機確認手順は[照合結果](excel-er-verification.md)に記録しています。
 
-出力先の`manifest.json`には、入力と成果物のSHA-256を記録します。定義YAMLを再編集した後は、成果物も再生成してください。
+出力先の`manifest.json`には、入力と成果物のSHA-256を記録します。`source`は親YAML、`sources`は親と参照先を含む全入力です。`sources[].file`は親YAMLからの相対パスです。テーブルYAMLだけを再編集した場合も、親YAMLを指定して成果物を再生成してください。
 
 `build`は全形式の生成後にmanifestを更新します。出力ディレクトリ全体をまとめて置き換える処理ではないため、途中の失敗では以前の成果物が残る場合があります。XLSX単独の保存は、一時ファイルの検証後に出力先を置き換える方式です。
 
@@ -95,7 +95,7 @@ DBDEF_GENERATED_HTML=dist/browser-test/database-definition.html npm test
 
 | ジョブ | 検査・生成内容 |
 | --- | --- |
-| `validate-and-publish` | Ruff、mypy、pytest、sdist・wheelのビルド、Schema差分、`examples/`の検証、基本サンプルの全形式生成 |
+| `validate-and-publish` | Ruff、mypy、pytest、sdist・wheelのビルド、Schema差分、`examples/`の検証、基本・分割サンプルの全形式生成 |
 | `browser-tests` | 基本サンプルのHTML生成、`npm ci`、生成HTMLを指定した`npm test` |
 
 生成物は`database-definition`というActions artifactに保存し、保存期間は30日です。このCIでは`definitions/`全体の検証は実行していないため、案件の定義を変更した際はローカルで`dbdef validate definitions`も実行してください。
@@ -140,7 +140,7 @@ CLI、HTMLのフッター、manifestの`generator.version`は、`importlib.metad
 
 ソースからのビルドには、Git履歴とタグが必要です。浅いcloneを使っている場合は、先に`git fetch --unshallow --tags`で取得してください。このリポジトリのCIは`fetch-depth: 0`で履歴とタグを取得します。Git情報のない環境で再ビルドする場合は、`python -m build`が生成したsdist（`.tar.gz`）を使います。GitHubのソースZIPをsdistの代わりに使わないでください。
 
-### v0.3.1を公開する
+### v0.4.0を公開する
 
 公開手順は[publish-python.yml](../.github/workflows/publish-python.yml)に定義しています。PyPI側のTrusted Publisherには、次の値を登録します。
 
@@ -151,12 +151,12 @@ CLI、HTMLのフッター、manifestの`generator.version`は、`importlib.metad
 | Workflow | `publish-python.yml` |
 | Environment | `pypi` |
 
-上記の品質検査を通し、このバージョン管理の変更を含めたコミットを公開対象のブランチに反映します。作業ツリーに変更がないことを確認し、リリース対象のコミットにタグを付けてpushします。
+上記の品質検査を通し、テーブル分割YAML対応のPRを`main`にマージします。マージ済みのコミットと作業ツリーに変更がないことを確認し、リリース対象のコミットにタグを付けてpushします。
 
 ```bash
 git status --short
-git tag -a v0.3.1 -m "Release v0.3.1"
-git push origin v0.3.1
+git tag -a v0.4.0 -m "Release v0.4.0"
+git push origin v0.4.0
 ```
 
 タグのpushがPyPI公開の起点です。以降のリリースでも、上のコマンドのタグ名だけを変更します。公開済みのタグは付け替えず、修正時には新しいバージョンのタグを作成してください。

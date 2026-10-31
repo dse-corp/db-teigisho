@@ -11,7 +11,7 @@
 | `format_version` | 文字列の`"1.0"`を指定 |
 | `document` | 文書の識別情報と作成・変更日時 |
 | `database` | 対象DBMSとデータベースの情報 |
-| `tables` | テーブルの配列 |
+| `tables` | テーブル定義または`physical_name`と`$ref`の参照項目の配列 |
 | `views` | ビューの配列 |
 | `stored_procedures` | ストアドプロシージャの配列 |
 
@@ -26,6 +26,12 @@
 `database`には、`dbms_name`、`dbms_version`、`database_name`、`schema_name`が必須です。`server_name`、`port`、`collation`は任意です。`port`は1〜65535の整数を指定します。これらは定義書の表示用情報であり、ツールからDBへ接続するための設定ではありません。
 
 ## テーブルには1列以上のカラムを定義する
+
+テーブルを別ファイルに分ける場合は、親YAMLの`tables`に`physical_name: customers`と`$ref: ../tables/customers.yaml`を記述します。`$ref`は親YAMLからの相対パスで、任意の深さと`../`を使えます。拡張子は`.yaml`か`.yml`です。絶対パス、URL、参照先からの再参照は使えません。
+
+参照先のルートには1テーブルの定義を置き、`tables:`や配列で包みません。親と参照先の`physical_name`は完全一致が必要です。参照項目に別のフィールドを足して上書きすることはできません。直接記述と参照は混在できます。[分割サンプル](../../../../examples/split/catalog/database.yaml)を参照してください。
+
+分割ファイルを編集した後は、その親YAMLを`dbdef validate`で検証します。ディレクトリ検証では参照先を親経由で検証し、親ごとの結果を返します。参照されていないYAMLは独立した定義書として検証されます。
 
 テーブルには`physical_name`、`logical_name`、`columns`が必須です。`columns`は1列以上必要です。`description`は任意で、`indexes`と`foreign_keys`は省略すると空の配列になります。
 
@@ -63,13 +69,13 @@ PK列には`primary_key: true`と`not_null: true`を指定します。複合主�
 
 キー列と付加列は、そのテーブルに存在するカラムを参照します。同じカラムを重複して指定した場合も検証エラーになります。種別名と`where`のSQL構文は検証しません。
 
-## FKは同じYAML内のテーブルと列を参照する
+## FKは同じ親YAMLに属するテーブルと列を参照する
 
 FKには`name`、参照元の`columns`、`referenced_table`、参照先の`referenced_columns`が必須です。両方の列配列は1列以上とし、列数と対応順をそろえます。
 
 `on_update`と`on_delete`には、`NO ACTION`、`RESTRICT`、`CASCADE`、`SET NULL`、`SET DEFAULT`のいずれかを指定します。省略時は`NO ACTION`です。`deferrable`は省略時に`false`で、対象DBMSで遅延制約を利用する場合に`true`とします。
 
-参照元カラム、参照先テーブル、参照先カラムはすべて同じYAML内に必要です。`on_delete: SET NULL`の場合、参照元FK列はすべてNULLを許す必要があります。この組み合わせの検証は`on_update: SET NULL`には実装されていないため、更新時の動作もレビューしてください。
+参照元カラム、参照先テーブル、参照先カラムはすべて同じ親YAMLに属する定義内に必要です。テーブルの参照ファイルが分かれていても、読み込み後に全体を検証します。`on_delete: SET NULL`の場合、参照元FK列はすべてNULLを許す必要があります。この組み合わせの検証は`on_update: SET NULL`には実装されていないため、更新時の動作もレビューしてください。
 
 参照先が主キーまたは一意キーであること、対応する列のデータ型が適合すること、DBMSが指定アクションをサポートすることは検証しません。ER図の推定ルールは[ER図の操作と仕様](../../../../docs/er-diagrams.md)を参照してください。
 

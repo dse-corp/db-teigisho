@@ -42,6 +42,7 @@ jobs:
           dbdef schema --check schemas/db-definition.schema.json
           dbdef validate examples
           dbdef build examples/database-definition.yaml --output /tmp/db-teigisho-definition-artifacts
+          dbdef build examples/split/catalog/database.yaml --output /tmp/db-teigisho-split-artifacts
 
       - name: Build Python distributions
         run: python -m build
@@ -51,9 +52,10 @@ jobs:
           python -m venv /tmp/db-teigisho-wheel-test
           /tmp/db-teigisho-wheel-test/bin/python -m pip install dist/*.whl
           test "$(/tmp/db-teigisho-wheel-test/bin/dbdef --version)" = "dbdef ${GITHUB_REF_NAME#v}"
-          /tmp/db-teigisho-wheel-test/bin/dbdef validate examples/database-definition.yaml
+          /tmp/db-teigisho-wheel-test/bin/dbdef validate examples
           /tmp/db-teigisho-wheel-test/bin/dbdef schema --check schemas/db-definition.schema.json
           /tmp/db-teigisho-wheel-test/bin/dbdef build examples/database-definition.yaml --output /tmp/db-teigisho-wheel-artifacts
+          /tmp/db-teigisho-wheel-test/bin/dbdef build examples/split/catalog/database.yaml --output /tmp/db-teigisho-wheel-split-artifacts
           /tmp/db-teigisho-wheel-test/bin/python - <<'PY'
           import json
           import os

@@ -10,6 +10,7 @@ Treat YAML as the source of truth and generate every requested artifact from the
 ## Workflow
 
 1. Identify exactly one source YAML under `definitions/` or `examples/`. Do not infer a source when multiple candidates match.
+   For split definitions, use the parent YAML as the input, not a standalone table file. Include every file listed in `manifest.sources` when checking input checksums; paths are relative to the parent YAML.
 2. Validate it before producing output:
 
    ```bash

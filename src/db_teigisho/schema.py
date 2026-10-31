@@ -6,13 +6,13 @@ import json
 from pathlib import Path
 from typing import Any
 
-from db_teigisho.models import DatabaseDefinition
+from db_teigisho.models import DatabaseDefinitionSource
 
 
 def generate_schema() -> dict[str, Any]:
     """Generate the structural contract from the runtime model."""
 
-    schema = DatabaseDefinition.model_json_schema(mode="validation")
+    schema = DatabaseDefinitionSource.model_json_schema(mode="validation")
     return {"$schema": "https://json-schema.org/draft/2020-12/schema", **schema}
 
 

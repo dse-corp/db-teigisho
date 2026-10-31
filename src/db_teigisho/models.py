@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from datetime import datetime
+from pathlib import Path, PureWindowsPath
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class DefinitionModel(BaseModel):
@@ -108,8 +109,28 @@ class SqlObjectDefinition(DefinitionModel):
     description: str | None = Field(default=None, description="補足説明")
 
 
-class DatabaseDefinition(DefinitionModel):
-    """Root of a versioned database definition document."""
+class TableReference(DefinitionModel):
+    """A named reference to one table YAML, relative to the parent document."""
+
+    physical_name: str = Field(min_length=1, description="参照先のテーブル物理名")
+    ref: str = Field(alias="$ref", min_length=1, description="親YAMLからの相対YAMLパス")
+
+    @field_validator("ref")
+    @classmethod
+    def local_yaml_path(cls, value: str) -> str:
+        if (
+            Path(value).is_absolute()
+            or PureWindowsPath(value).drive
+            or "://" in value
+            or "\x00" in value
+            or Path(value).suffix.casefold() not in {".yaml", ".yml"}
+        ):
+            raise ValueError("$ref must be a relative local .yaml or .yml path")
+        return value
+
+
+class DatabaseDocument(DefinitionModel):
+    """Shared metadata and SQL objects for source and resolved documents."""
 
     model_config = ConfigDict(
         extra="forbid",
@@ -123,6 +144,17 @@ class DatabaseDefinition(DefinitionModel):
     format_version: Literal["1.0"] = Field(description="定義フォーマットのバージョン")
     document: DocumentManagement
     database: DatabaseSettings
-    tables: list[TableDefinition]
     views: list[SqlObjectDefinition]
     stored_procedures: list[SqlObjectDefinition]
+
+
+class DatabaseDefinition(DatabaseDocument):
+    """Resolved definition consumed by validators and renderers."""
+
+    tables: list[TableDefinition]
+
+
+class DatabaseDefinitionSource(DatabaseDocument):
+    """YAML contract accepting both inline tables and file references."""
+
+    tables: list[TableDefinition | TableReference]

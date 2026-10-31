@@ -4,6 +4,8 @@ repos:
       - id: validate-database-definitions
         name: Validate database definitions
         entry: dbdef validate
+        args: [definitions, examples]
+        pass_filenames: false
         language: python
         additional_dependencies:
           - "."

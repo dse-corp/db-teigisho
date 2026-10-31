@@ -519,6 +519,30 @@
       ],
       "title": "TableDefinition",
       "type": "object"
+    },
+    "TableReference": {
+      "additionalProperties": false,
+      "description": "A named reference to one table YAML, relative to the parent document.",
+      "properties": {
+        "physical_name": {
+          "description": "参照先のテーブル物理名",
+          "minLength": 1,
+          "title": "Physical Name",
+          "type": "string"
+        },
+        "$ref": {
+          "description": "親YAMLからの相対YAMLパス",
+          "minLength": 1,
+          "title": "$Ref",
+          "type": "string"
+        }
+      },
+      "required": [
+        "physical_name",
+        "$ref"
+      ],
+      "title": "TableReference",
+      "type": "object"
     }
   },
   "additionalProperties": false,
@@ -536,13 +560,6 @@
     "database": {
       "$ref": "#/$defs/DatabaseSettings"
     },
-    "tables": {
-      "items": {
-        "$ref": "#/$defs/TableDefinition"
-      },
-      "title": "Tables",
-      "type": "array"
-    },
     "views": {
       "items": {
         "$ref": "#/$defs/SqlObjectDefinition"
@@ -556,15 +573,29 @@
       },
       "title": "Stored Procedures",
       "type": "array"
+    },
+    "tables": {
+      "items": {
+        "anyOf": [
+          {
+            "$ref": "#/$defs/TableDefinition"
+          },
+          {
+            "$ref": "#/$defs/TableReference"
+          }
+        ]
+      },
+      "title": "Tables",
+      "type": "array"
     }
   },
   "required": [
     "format_version",
     "document",
     "database",
-    "tables",
     "views",
-    "stored_procedures"
+    "stored_procedures",
+    "tables"
   ],
   "title": "Database Definition",
   "type": "object"

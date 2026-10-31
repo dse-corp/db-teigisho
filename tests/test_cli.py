@@ -46,6 +46,24 @@ def test_validate_command_returns_nonzero_for_invalid_input(tmp_path: Path) -> N
     assert "INVALID" in result.stdout
 
 
+def test_validate_directory_resolves_split_tables(split_definition_file: Path) -> None:
+    result = _run_cli("validate", str(split_definition_file.parent.parent), "--json")
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert len(payload) == 1
+    assert payload[0]["path"] == str(split_definition_file)
+    assert payload[0]["valid"] is True
+
+
+def test_render_command_resolves_split_tables(split_definition_file: Path, tmp_path: Path) -> None:
+    output = tmp_path / "split.mmd"
+    result = _run_cli(
+        "render", str(split_definition_file), "--format", "mermaid", "--output", str(output)
+    )
+    assert result.returncode == 0
+    assert "customers" in output.read_text() and "orders" in output.read_text()
+
+
 def test_schema_check_command_detects_a_stale_schema(tmp_path: Path) -> None:
     schema_path = tmp_path / "schema.json"
     schema_path.write_text("{}\n", encoding="utf-8")

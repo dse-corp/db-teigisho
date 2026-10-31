@@ -9,7 +9,7 @@ YAMLでデータベース定義を管理し、検証と定義書の生成を行�
 | 目的 | 参照先 |
 | --- | --- |
 | YAMLを作成・編集する | [YAML項目ガイド](.agents/skills/manage-db-definitions/references/field-guide.md) |
-| 記述例を確認する | [基本サンプル](examples/database-definition.yaml)、[ECサイトの定義例](definitions/ecommerce.yaml) |
+| 記述例を確認する | [基本サンプル](examples/database-definition.yaml)、[分割サンプル](examples/split/catalog/database.yaml)、[ECサイトの定義例](definitions/ecommerce.yaml) |
 | ER図を操作する・表記ルールを確認する | [ER図の操作と仕様](docs/er-diagrams.md) |
 | ツールを開発・検証・公開する | [開発と自動検証](docs/development.md) |
 | AIエージェントで定義を編集する | [manage-db-definitions Skill](.agents/skills/manage-db-definitions/SKILL.md) |
@@ -55,13 +55,53 @@ dbdef validate definitions examples
 dbdef validate definitions --json
 ```
 
-ディレクトリを指定すると、配下の`*.yaml`と`*.yml`を再帰的に検証します。JSON出力は、ファイルごとの`path`、`valid`、`errors`を持つ配列です。検証エラーがあれば終了コードは`1`になります。
+ディレクトリを指定すると、配下の`*.yaml`と`*.yml`を再帰的に探索します。参照されているテーブルYAMLは親YAMLを通して検証し、結果には親YAMLを掲載します。参照されていないYAMLは独立した定義書として検証します。JSON出力は、ファイルごとの`path`、`valid`、`errors`を持つ配列です。検証エラーがあれば終了コードは`1`になります。
 
 対象の探索に失敗した場合や、指定したディレクトリにYAMLがない場合は、`--json`を付けても配列を返さず標準エラー出力に理由を表示します。プログラムから呼び出す場合は、終了コードと標準エラー出力も確認してください。
 
 検証では、必須項目や未対応のフィールドに加え、名前の重複、PK列のNOT NULL、インデックスやFKの参照先などを確認します。SQL構文、データ型の妥当性、FK参照先の一意性など、DBMSに依存する内容は別途レビューしてください。
 
 YAMLの検証が通ったら`build`を実行します。生成済みファイルを直接編集しても、次の生成で上書きされます。
+
+## テーブルごとにYAMLを分ける
+
+親YAMLの`tables`には、テーブル物理名と定義ファイルへの`$ref`を記述できます。文書情報、DB情報、ビュー、ストアドプロシージャは親YAMLに置きます。
+
+```yaml
+tables:
+  - physical_name: customers
+    $ref: ../tables/master/customers.yaml
+  - physical_name: orders
+    $ref: ../tables/sales/orders.yaml
+```
+
+参照先のYAMLには、1テーブルの定義を直接記述します。`tables:`や配列の`-`は付けません。
+
+```yaml
+physical_name: customers
+logical_name: 顧客
+columns:
+  - physical_name: customer_id
+    logical_name: 顧客ID
+    data_type: uuid
+    not_null: true
+    primary_key: true
+indexes: []
+foreign_keys: []
+```
+
+`$ref`は**親YAMLのあるフォルダからの相対パス**です。実行時のカレントディレクトリには依存せず、任意の深さのフォルダや`../`で指定するフォルダに配置できます。拡張子は`.yaml`または`.yml`を使います。絶対パス、URL、参照先からの再参照は受け付けません。
+
+親と参照先の`physical_name`は、大文字・小文字も含めて一致させてください。参照項目にカラムなどを追加して上書きすることはできません。従来のテーブル直接記述と参照形式は同じ`tables`内で混在でき、`format_version: "1.0"`を引き続き使います。
+
+検証・生成には親YAMLを指定します。FKや名前の重複は、全テーブルを読み込んだ後にまとめて検証します。テーブルYAMLを編集した後も、参照している親YAMLを検証してください。
+
+```bash
+dbdef validate examples/split/catalog/database.yaml
+dbdef build examples/split/catalog/database.yaml --output dist/split-definition
+```
+
+動作する一式は[分割サンプル](examples/split/catalog/database.yaml)にあります。
 
 ## 必要な形式だけを出力する
 
@@ -107,11 +147,13 @@ HTMLで変更した配置や線種は、閲覧したブラウザーの保存領�
 | `<入力名>.pdf` | 表紙、ER図、テーブル一覧、各定義、SQL本文を収録したPDF |
 | `<入力名>.mmd` | FKから生成したMermaid ER図コード |
 | `<入力名>.svg` / `<入力名>.png` | 全カラムを表示するER図の画像 |
-| `manifest.json` | 入力と各成果物のSHA-256、成果物のバイト数、生成日時、ツールバージョン |
+| `manifest.json` | 親YAML・参照先YAMLと各成果物のSHA-256、成果物のバイト数、生成日時、ツールバージョン |
 
 PDFにはNoto Sans JPを埋め込み、PNGの描画にも同じフォントを使います。SVGは閲覧端末の日本語フォントを使用します。同梱フォントのライセンスは[OFL.txt](src/db_teigisho/assets/OFL.txt)を参照してください。
 
 同じ出力ディレクトリで再生成すると、同名の成果物と`manifest.json`を上書きします。複数の定義書を管理する場合は、上の例のように出力先を分けてください。
+
+manifestの`source`には従来どおり親YAMLを記録し、`sources`には親とすべての参照先のパス・SHA-256を記録します。`sources[].file`の基準は親YAMLのあるフォルダです。参照先だけを編集した場合も、そのチェックサムで変更を確認できます。
 
 `build`は全形式の生成後にmanifestを書き込みます。途中で失敗すると、出力先に一部の新しいファイルと以前のファイルが混在する場合があります。配布前にコマンドの成功を確認してください。`render`はmanifestを生成・更新しません。
 

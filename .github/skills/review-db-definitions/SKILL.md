@@ -10,6 +10,7 @@ Review the YAML SSOT and report actionable findings. Do not modify files unless 
 ## Workflow
 
 1. Read the changed YAML, `examples/database-definition.yaml`, and `schemas/db-definition.schema.json`.
+   For split definitions, follow each named `$ref` from the parent and validate the parent document. Review foreign keys across all resolved tables and require an exact `physical_name` match between each parent entry and its table file.
 2. Run machine validation, using JSON when results will be parsed:
 
    ```bash

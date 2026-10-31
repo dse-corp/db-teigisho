@@ -44,13 +44,17 @@ jobs:
         run: dbdef validate examples
 
       - name: Build definition artifacts
-        run: dbdef build examples/database-definition.yaml --output dist/database-definition
+        run: |
+          dbdef build examples/database-definition.yaml --output dist/database-definition
+          dbdef build examples/split/catalog/database.yaml --output dist/split-definition
 
       - name: Upload definition artifacts
         uses: actions/upload-artifact@v7.0.2
         with:
           name: database-definition
-          path: dist/database-definition
+          path: |
+            dist/database-definition
+            dist/split-definition
           if-no-files-found: error
           retention-days: 30
 

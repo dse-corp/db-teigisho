@@ -80,6 +80,8 @@ dbdef render examples/database-definition.yaml --format png --output dist/defini
 
 `--er-columns`は`mermaid`、`svg`、`png`に適用されます。値は`all`（既定、全カラム）、`keys`（PK・FK列）、`tables`（テーブル名のみ）です。HTMLは閲覧時に表示を切り替え、XLSXとPDFには全カラムのER図を掲載します。
 
+XLSXのER図は、テーブルごとにグループ化した図形と、接続先を持つカギ線コネクタで生成します。Excelで文字・色・配置を編集できます。編集結果はExcelファイル内に保存され、YAMLからの再生成時には置き換わります。操作方法と検証状況は[ER図の操作と仕様](docs/er-diagrams.md#excelで図形を編集する)を参照してください。
+
 ## 一括生成で出力されるファイル
 
 `dbdef build <入力YAML> --output <出力ディレクトリ>`は、入力ファイルの拡張子を除いた名前を使って、次のファイルを生成します。

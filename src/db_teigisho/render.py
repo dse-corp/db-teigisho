@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+import math
 import re
 from base64 import b64encode
 from collections.abc import Mapping
@@ -16,7 +17,6 @@ from typing import Any
 
 from jinja2 import Environment, PackageLoader, select_autoescape
 from openpyxl import Workbook
-from openpyxl.drawing.image import Image as OpenpyxlImage
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.properties import PageSetupProperties
@@ -49,7 +49,8 @@ from db_teigisho.diagram_render import (
 )
 from db_teigisho.er import ColumnDisplayMode, render_mermaid
 from db_teigisho.er_graph import build_er_graph
-from db_teigisho.er_scene import build_nodes, viewer_geometry
+from db_teigisho.er_scene import build_nodes, viewer_geometry, wrap_text
+from db_teigisho.er_xlsx import ExcelErDrawing, build_er_drawing, save_with_er_drawing
 from db_teigisho.loader import load_definition
 from db_teigisho.models import DatabaseDefinition, SqlObjectDefinition, TableDefinition
 
@@ -294,28 +295,48 @@ def _table_list_sheet(workbook: Workbook, definition: DatabaseDefinition) -> Non
     sheet.print_area = sheet.dimensions
 
 
-def _er_sheet(workbook: Workbook, diagram: RenderedErDiagram) -> None:
+def _er_sheet(workbook: Workbook, diagram: ExcelErDrawing) -> None:
     sheet = workbook.create_sheet("ER図")
     sheet.sheet_view.showGridLines = False
     _style_title(sheet, "ER図（全カラム）", 16)
-    sheet.cell(2, 1, "PK/FKとカーディナリティを含むER図").font = Font(bold=True, color="4A5968")
-    image = OpenpyxlImage(BytesIO(diagram.png))
-    maximum_width = 1800
-    if image.width > maximum_width:
-        scale = maximum_width / image.width
-        image.width = maximum_width
-        image.height = int(image.height * scale)
-    sheet.add_image(image, "A3")
-    for column in range(1, 17):
+    sheet.cell(2, 1, "テーブル単位で移動・文字編集できます。再生成するとYAMLの内容に戻ります。")
+    columns = max(16, math.ceil(diagram.width / 89))
+    for column in range(1, columns + 1):
         sheet.column_dimensions[get_column_letter(column)].width = 12
-    for row in range(3, 46):
-        sheet.row_dimensions[row].height = 18
+    sheet.sheet_format.defaultRowHeight = 18
+    legend_row = math.ceil(diagram.height / 24) + 3
+    sheet.cell(legend_row, 1, "多重度: 1 / 0..1 / 0..N　実線: identifying　破線: non-identifying")
+    legend_row += 2
+    spans = ((1, 1), (2, 4), (5, 7), (8, 10), (11, 16))
+    headers = ("No.", "外部キー", "参照元", "参照先", "列対応（参照元 → 参照先）")
+    row = legend_row
+    for values in (headers, *diagram.legend):
+        wrapped = [
+            wrap_text(value, (end - start + 1) * 89 - 14, 14)
+            for (start, end), value in zip(spans, values, strict=True)
+        ]
+        # Continue long values onto additional rows, below Excel's 409-point
+        # row-height and 32767-character cell limits, without dropping text.
+        for offset in range(0, max(map(len, wrapped)), 24):
+            lines = 1
+            for (start, end), parts in zip(spans, wrapped, strict=True):
+                chunk = parts[offset : offset + 24]
+                lines = max(lines, len(chunk))
+                sheet.merge_cells(start_row=row, start_column=start, end_row=row, end_column=end)
+                cell = sheet.cell(row, start, _excel_value("\n".join(chunk)))
+                cell.font = Font(size=10.5)
+                cell.alignment = Alignment(vertical="top", wrap_text=True)
+                cell.border = _CELL_BORDER
+            sheet.row_dimensions[row].height = max(24, lines * 16)
+            if row == legend_row:
+                _style_header(sheet, row, 16)
+            row += 1
     sheet.freeze_panes = "A3"
     sheet.page_setup.orientation = "landscape"
     sheet.page_setup.fitToWidth = 1
     sheet.page_setup.fitToHeight = 0
     sheet.sheet_properties.pageSetUpPr = PageSetupProperties(fitToPage=True)
-    sheet.print_area = "A1:P45"
+    sheet.print_area = f"A1:{get_column_letter(columns)}{row - 1}"
 
 
 def _table_sheet(workbook: Workbook, table: TableDefinition, title: str) -> None:
@@ -450,13 +471,16 @@ def render_xlsx(
     workbook = Workbook()
     _document_sheet(workbook, definition)
     _table_list_sheet(workbook, definition)
-    _er_sheet(workbook, _default_er_diagram(definition, diagrams))
+    # Keep the optional image cache argument for existing callers; native XLSX
+    # drawings are built directly from the graph, without invoking PNG rendering.
+    drawing = build_er_drawing(build_er_graph(definition))
+    _er_sheet(workbook, drawing)
     existing = {"文書情報".casefold(), "テーブル一覧".casefold(), "ER図".casefold()}
     for table in definition.tables:
         _table_sheet(workbook, table, _safe_sheet_title(table.physical_name, existing))
     _sql_sheet(workbook, "ビュー", definition.views)
     _sql_sheet(workbook, "ストアドプロシージャ", definition.stored_procedures)
-    workbook.save(output)
+    save_with_er_drawing(workbook, "ER図", drawing, output)
 
 
 def _pdf_styles() -> dict[str, ParagraphStyle]:

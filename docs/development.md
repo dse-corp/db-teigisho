@@ -37,7 +37,9 @@ pytestはカバレッジも計測し、80%未満なら失敗します。型検�
 | `src/db_teigisho/cli.py` | `validate`、`schema`、`render`、`build`の引数と終了コード |
 | `src/db_teigisho/codex_hook.py` / `copilot_hook.py` | エージェント向け自動検証の判定と応答 |
 
-基本的な引数の一覧は`dbdef --help`、各コマンドの詳細は`dbdef render --help`などで確認できます。`dbdef schema`は出力先を省略すると標準出力にJSON Schemaを表示します。
+基本的な引数の一覧は`dbdef --help`、各コマンドの詳細は`dbdef render --help`などで確認できます。`dbdef schema`は出力先を省略すると標準出力にJSON Schemaを表示します。同じ仮想環境のPythonからは、`.venv/bin/python -m db_teigisho`でもCLIを起動できます。
+
+JSON Schemaは項目と型を表します。名前の重複、PK列のNOT NULL、FK参照などの意味検証は`dbdef validate`で実行するため、Schemaだけで検証を完了させないでください。
 
 ## モデルを変更したらSchemaとテストを更新する
 
@@ -59,18 +61,22 @@ YAMLの構造は`models.py`、項目間やオブジェクト間の整合性は`v
 
 XLSXのER図は、セルをopenpyxlで保存した後、生成したDrawingMLをパッケージへ追加します。追加後のXLSXをopenpyxlで再保存しないでください。`tests/test_er_xlsx.py`は接続先と図形ID、接続点と描画座標、標準形状の回転・反転、カスタム形状の調整ハンドル、既存画像・リンクの保持、保存失敗時の復元、長い凡例、500テーブル・2,000 FKの境界を検査します。
 
-変更時は基本サンプルと`definitions/ecommerce.yaml`をビルドし、Windows版・Mac版Excelで、グループ移動への接続線・ラベルの追従、内部テキストの編集、線の調整、保存・再読込、印刷を確認してください。XMLやZIPの検査はExcelでの操作確認の代わりにはなりません。今回の実施結果と実機確認手順は[照合結果](excel-er-verification.md)に記録しています。
+変更時は基本サンプルと`definitions/ecommerce.yaml`をビルドし、Windows版・Mac版Excelで、グループ移動への接続線・ラベルの追従、内部テキストの編集、線の調整、保存・再読込、印刷を確認してください。XMLやZIPの検査はExcelでの操作確認の代わりにはなりません。実装時の検証記録と実機確認手順は[照合結果](excel-er-verification.md)に記録しています。
 
 出力先の`manifest.json`には、入力と成果物のSHA-256を記録します。定義YAMLを再編集した後は、成果物も再生成してください。
 
+`build`は全形式の生成後にmanifestを更新します。出力ディレクトリ全体をまとめて置き換える処理ではないため、途中の失敗では以前の成果物が残る場合があります。XLSX単独の保存は、一時ファイルの検証後に出力先を置き換える方式です。
+
 ## HTMLの操作はブラウザーで回帰テストする
 
-開発時のブラウザーテストには、Node.js 22.12以上とPuppeteerが使うChromiumが必要です。これらは成果物の生成・閲覧には不要です。
+開発時のブラウザーテストには、Node.js 22.12以上と、Puppeteerが取得するChrome for Testingが必要です。これらは成果物の生成・閲覧には不要です。
 
 ```bash
 npm ci
 npm test
 ```
+
+`Could not find Chrome`で起動に失敗する場合は、`npx puppeteer browsers install chrome`で対応するブラウザーを取得してから再実行してください。
 
 `npm test`は`tests/test_er_*.mjs`を実行します。表示切り替えや選択、ズーム・パンなどの閲覧操作に加え、配置の変更・保存・復元と線の経路も検証します。
 
@@ -124,15 +130,22 @@ Copilotの編集後フックは検証結果をコンテキストに返します�
 | Workflow | `publish-python.yml` |
 | Environment | `pypi` |
 
-`pyproject.toml`の`project.version`と一致する`v`付きタグをpushすると、ワークフローが実行されます。たとえばバージョンが`0.2.2`なら次のコマンドです。
+`v`で始まるタグをpushすると、ワークフローが実行されます。公開へ進むには、タグから`v`を除いた値と`pyproject.toml`の`project.version`が一致する必要があります。現在の設定は`0.3.0`なので、対応するタグは次のとおりです。バージョンを変更した場合はタグも置き換えてください。
 
 ```bash
-git tag v0.2.2
-git push origin v0.2.2
+git tag v0.3.0
+git push origin v0.3.0
 ```
 
-公開準備では`src/db_teigisho/__init__.py`の`__version__`も確認してください。現在は`pyproject.toml`が`0.2.2`、`__version__`が`0.1.1`です。CLIの`--version`とmanifestは後者を使うため、公開前に両方をそろえる必要があります。
+公開準備では`src/db_teigisho/__init__.py`の`__version__`も確認してください。現在は`pyproject.toml`が`0.3.0`、`__version__`が`0.1.1`で一致していません。CLIの`--version`とmanifestは後者を使うため、公開前に両方をそろえる必要があります。
 
-公開前にPythonの品質検査、Schemaとサンプルの検証、成果物の生成を行います。続いて配布パッケージをビルドし、タグとバージョンの一致、wheelのインストールを確認します。ブラウザーテストも別ジョブで実行し、両方が成功した後にPyPIへ公開します。
+インストール済みパッケージのメタデータと、CLIが使う値は次のコマンドで比較できます。バージョンを変更した後は、先に`.venv/bin/pip install -e '.[dev]'`でメタデータも更新してください。
+
+```bash
+.venv/bin/python -c 'from importlib.metadata import version; from db_teigisho import __version__; print("package:", version("db-teigisho")); print("CLI / manifest:", __version__)'
+.venv/bin/dbdef --version
+```
+
+公開前にPythonの品質検査、Schemaとサンプルの検証、成果物の生成を行います。続いて配布パッケージをビルドし、タグとインストール済みパッケージのバージョンの一致、wheelのインストールを確認します。このタグ検査は`__version__`との一致までは確認しません。ブラウザーテストも別ジョブで実行し、両方が成功した後にPyPIへ公開します。
 
 この説明はリポジトリ内のワークフローを示しています。PyPI側の登録状況や、特定バージョンの公開済み状態はリポジトリからは確認できません。

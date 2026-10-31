@@ -1,6 +1,6 @@
 # Excelで編集できるER図の生成計画
 
-状態: 計画作成時の内容を保持。対象はXLSXの「ER図」シート。実装後の確認は[計画との照合結果](excel-er-verification.md)を参照。
+この文書は、XLSXの「ER図」シートを編集可能な図形にするために作成した計画の記録です。`er_xlsx.py`による図形生成と自動検証は実装済みです。以下の方針・作業順序・完了条件は計画時点の内容を残しています。実装との差分と未確認のExcel操作は[計画との照合結果](excel-er-verification.md)、現在の使い方は[ER図の操作と仕様](er-diagrams.md#excelで図形を編集する)を参照してください。
 
 ## 完成時の操作
 
@@ -28,15 +28,15 @@ YAMLを引き続き定義の正本とする。Excelでの編集内容はYAMLへ�
 
 多重度と関連番号は独立した固定位置のラベルにせず、対応するテーブルのグループに含める。コネクタの接続先を変更した場合のラベル修正は利用者が行う。
 
-## 現状と実装方針
+## 計画時点の実装と変更方針
 
-現在は`src/db_teigisho/render.py`の`_er_sheet()`がPNGを`A3`に貼り付けている。印刷範囲も`A1:P45`に固定されている。
+計画作成時は`src/db_teigisho/render.py`の`_er_sheet()`がPNGを`A3`に貼り付けていた。印刷範囲も`A1:P45`に固定されていた。実装後はPNGの貼り付けを図形生成へ置き換え、印刷範囲を図と凡例から算出している。
 
 `er_graph.py`にはFK・多重度・列対応があり、`er_scene.py`には文字計測と初期配置がある。これらを再利用して、Excel専用のDrawingML出力を追加する。
 
 シートのセル・書式は引き続きopenpyxlで生成し、保存後のXLSXパッケージへ生成処理としてDrawingMLを組み込む。図形は`xdr:sp`、グループは`xdr:grpSp`、コネクタは`xdr:cxnSp`で表す。コネクタには`a:stCxn`・`a:endCxn`で接続先の図形IDと接続点を記録する。[図形間のコネクタ](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.spreadsheet.connectionshape?view=openxml-3.0.1)、[グループ図形](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.spreadsheet.groupshape?view=openxml-3.0.1)、[始点接続](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.startconnection?view=openxml-3.0.1)、[終点接続](https://learn.microsoft.com/en-us/dotnet/api/documentformat.openxml.drawing.endconnection?view=openxml-3.0.1)の公式仕様を参照する。
 
-インストール済みopenpyxl 3.1.5の`SpreadsheetDrawing._write()`は画像とチャートを起点に書き出すため、図形出力の専用モジュールを設ける。図形追加後にopenpyxlで読み直して保存する工程は入れない。公式ドキュメントでも、既存ファイルを読み込んで保存すると図形が失われる場合があると説明されている。[openpyxlの制限](https://openpyxl.readthedocs.io/en/stable/tutorial.html#loading-from-a-file)
+計画時に確認したopenpyxl 3.1.5の`SpreadsheetDrawing._write()`は画像とチャートを起点に書き出すため、図形出力の専用モジュールを設ける。図形追加後にopenpyxlで読み直して保存する工程は入れない。公式ドキュメントでも、既存ファイルを読み込んで保存すると図形が失われる場合があると説明されている。[openpyxlの制限](https://openpyxl.readthedocs.io/en/stable/tutorial.html#loading-from-a-file)
 
 これはレンダラーによる自動生成処理とし、生成済みXLSXの手編集によって実装を管理しない。実行時はPythonだけで完結させ、Excelのインストールやマクロを生成の前提にしない。
 

@@ -4,6 +4,6 @@
     "test": "node --test tests/test_er_*.mjs"
   },
   "devDependencies": {
-    "puppeteer": "25.9.0"
+    "puppeteer": "25.16.0"
   }
 }

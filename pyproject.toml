@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.32,<2"]
+requires = ["hatchling>=1.33.0,<2"]
 build-backend = "hatchling.build"
 
 [project]
@@ -25,10 +25,10 @@ classifiers = [
 dependencies = [
   "Jinja2>=3.1.6,<4",
   "openpyxl>=3.1.5,<4",
-  "Pillow>=12.3,<13",
-  "pydantic>=2.13.5,<3",
+  "Pillow>=13.0.0,<14",
+  "pydantic>=2.14.2,<3",
   "PyYAML>=6.0.3,<7",
-  "reportlab>=5.0.1,<6",
+  "reportlab>=5.1.0,<6",
 ]
 
 [project.urls]
@@ -38,14 +38,14 @@ Issues = "https://github.com/dse-corp/db-teigisho/issues"
 
 [project.optional-dependencies]
 dev = [
-  "build>=1.6,<2",
-  "mypy>=2.3,<3",
-  "pytest>=9.1,<10",
-  "pytest-cov>=7.1,<8",
-  "ruff>=0.16.5,<1",
-  "types-openpyxl>=3.1.5.20260827,<4",
-  "types-PyYAML>=6.0.12.20260815,<7",
-  "types-reportlab>=4.5.1.20260827,<5",
+  "build>=1.6.1,<2",
+  "mypy>=2.4.1,<3",
+  "pytest>=9.2.0,<10",
+  "pytest-cov>=7.1.0,<8",
+  "ruff>=0.17.3,<1",
+  "types-openpyxl>=3.1.5.20261017,<4",
+  "types-PyYAML>=6.0.12.20261030,<7",
+  "types-reportlab>=5.0.0.20261008,<6",
 ]
 
 [project.scripts]

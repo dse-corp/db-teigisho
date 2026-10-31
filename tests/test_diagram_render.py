@@ -47,9 +47,11 @@ def test_offline_cli_generates_every_format_without_external_executables(
         assert image.width > 300
     with ZipFile(tmp_path / "definition.xlsx") as workbook:
         images = [name for name in workbook.namelist() if name.startswith("xl/media/")]
-        assert len(images) == 1
-        with Image.open(BytesIO(workbook.read(images[0]))) as image:
-            image.verify()
+        assert not images
+        drawing = ET.fromstring(workbook.read("xl/drawings/drawing1.xml"))
+        namespace = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+        assert len(drawing.findall(f".//{{{namespace}}}grpSp")) == 2
+        assert len(drawing.findall(f".//{{{namespace}}}cxnSp")) == 1
     assert re.search(rb"/Subtype\s*/Image", (tmp_path / "definition.pdf").read_bytes())
     manifest = json.loads((tmp_path / "build/manifest.json").read_text())
     assert len(manifest["artifacts"]) == 6

@@ -174,7 +174,7 @@ def test_renders_formatted_xlsx(definition_file: Path, tmp_path: Path) -> None:
     assert workbook["テーブル一覧"]["F5"].value == 1
     assert workbook["テーブル一覧"]["G4"].value == 0
     assert workbook["テーブル一覧"].freeze_panes == "A4"
-    assert len(workbook["ER図"]._images) == 1
+    assert len(workbook["ER図"]._images) == 0
     assert workbook["orders"].freeze_panes == "A5"
     assert workbook["orders"]["B5"].value == "order_id"
     assert workbook["orders"].sheet_view.showGridLines is False

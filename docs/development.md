@@ -30,6 +30,7 @@ pytestはカバレッジも計測し、80%未満なら失敗します。型検�
 | `src/db_teigisho/er_graph.py` | 描画先に依存しないERグラフと多重度の推定 |
 | `src/db_teigisho/er.py` | Mermaidコードの生成 |
 | `src/db_teigisho/er_scene.py` | フォント計測、初期配置、経路、図の上限検査 |
+| `src/db_teigisho/er_xlsx.py` | XLSX用のグループ図形・コネクタ、パッケージへの組み込みと安全な保存 |
 | `src/db_teigisho/diagram_render.py` | 共通シーンからのSVG・Pillow PNG生成 |
 | `src/db_teigisho/render.py` | HTML・XLSX・PDF生成とmanifest出力 |
 | `src/db_teigisho/templates/` | HTMLテンプレートとER図操作のJavaScript・CSS |
@@ -55,6 +56,10 @@ YAMLの構造は`models.py`、項目間やオブジェクト間の整合性は`v
 ```bash
 .venv/bin/dbdef build examples/database-definition.yaml --output dist/database-definition
 ```
+
+XLSXのER図は、セルをopenpyxlで保存した後、生成したDrawingMLをパッケージへ追加します。追加後のXLSXをopenpyxlで再保存しないでください。`tests/test_er_xlsx.py`は接続先と図形ID、接続点と描画座標、標準形状の回転・反転、カスタム形状の調整ハンドル、既存画像・リンクの保持、保存失敗時の復元、長い凡例、500テーブル・2,000 FKの境界を検査します。
+
+変更時は基本サンプルと`definitions/ecommerce.yaml`をビルドし、Windows版・Mac版Excelで、グループ移動への接続線・ラベルの追従、内部テキストの編集、線の調整、保存・再読込、印刷を確認してください。XMLやZIPの検査はExcelでの操作確認の代わりにはなりません。今回の実施結果と実機確認手順は[照合結果](excel-er-verification.md)に記録しています。
 
 出力先の`manifest.json`には、入力と成果物のSHA-256を記録します。定義YAMLを再編集した後は、成果物も再生成してください。
 

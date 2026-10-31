@@ -4,6 +4,7 @@ import hashlib
 import json
 import re
 from copy import deepcopy
+from importlib.metadata import version
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,7 @@ def test_renders_self_contained_html(definition_file: Path, tmp_path: Path) -> N
 
     html = output.read_text(encoding="utf-8")
     assert "<!doctype html>" in html.lower()
+    assert f"db-teigisho {version('db-teigisho')}</footer>" in html
     assert "受注管理システム" in html
     assert "orders" in html
     assert "customer_order_totals" in html
@@ -221,6 +223,7 @@ def test_builds_all_ci_artifacts_with_sha256_manifest(
     manifest_path = build_artifacts(definition_file, output_dir)
 
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    assert manifest["generator"] == {"name": "db-teigisho", "version": version("db-teigisho")}
     assert manifest["source"]["file"] == definition_file.name
     assert {item["format"] for item in manifest["artifacts"]} == {
         "html",

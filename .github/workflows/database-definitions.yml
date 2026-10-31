@@ -13,6 +13,8 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v7.1.0
@@ -31,6 +33,9 @@ jobs:
 
       - name: Test with coverage
         run: pytest
+
+      - name: Build Python distributions
+        run: python -m build
 
       - name: Check committed JSON Schema
         run: dbdef schema --check schemas/db-definition.schema.json
@@ -53,6 +58,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: "22"

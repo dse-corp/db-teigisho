@@ -14,6 +14,16 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Check release tag format
+        shell: bash
+        run: |
+          if [[ ! "$GITHUB_REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+((a|b|rc)[0-9]+)?$ ]]; then
+            echo "Expected a tag such as v0.3.1 or v0.4.0rc1; got $GITHUB_REF_NAME" >&2
+            exit 1
+          fi
 
       - name: Set up Python
         uses: actions/setup-python@v7.1.0
@@ -36,17 +46,30 @@ jobs:
       - name: Build Python distributions
         run: python -m build
 
-      - name: Verify release tag
-        run: |
-          test "${GITHUB_REF_NAME#v}" = "$(python -c 'from importlib.metadata import version; print(version("db-teigisho"))')"
-
       - name: Verify wheel installation
         run: |
           python -m venv /tmp/db-teigisho-wheel-test
           /tmp/db-teigisho-wheel-test/bin/python -m pip install dist/*.whl
-          /tmp/db-teigisho-wheel-test/bin/dbdef --version
+          test "$(/tmp/db-teigisho-wheel-test/bin/dbdef --version)" = "dbdef ${GITHUB_REF_NAME#v}"
           /tmp/db-teigisho-wheel-test/bin/dbdef validate examples/database-definition.yaml
           /tmp/db-teigisho-wheel-test/bin/dbdef schema --check schemas/db-definition.schema.json
+          /tmp/db-teigisho-wheel-test/bin/dbdef build examples/database-definition.yaml --output /tmp/db-teigisho-wheel-artifacts
+          /tmp/db-teigisho-wheel-test/bin/python - <<'PY'
+          import json
+          import os
+          from importlib.metadata import version
+          from pathlib import Path
+
+          from db_teigisho import __version__
+
+          expected = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          assert version("db-teigisho") == __version__ == expected
+          artifacts = Path("/tmp/db-teigisho-wheel-artifacts")
+          manifest = json.loads((artifacts / "manifest.json").read_text(encoding="utf-8"))
+          assert manifest["generator"]["version"] == expected
+          html = (artifacts / "database-definition.html").read_text(encoding="utf-8")
+          assert f"db-teigisho {expected}</footer>" in html
+          PY
 
       - name: Upload Python distributions
         uses: actions/upload-artifact@v7.0.2
@@ -77,6 +100,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7.1.0
         with:
           node-version: "22"

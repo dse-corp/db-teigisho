@@ -95,7 +95,7 @@ DBDEF_GENERATED_HTML=dist/browser-test/database-definition.html npm test
 
 | ジョブ | 検査・生成内容 |
 | --- | --- |
-| `validate-and-publish` | Ruff、mypy、pytest、Schema差分、`examples/`の検証、基本サンプルの全形式生成 |
+| `validate-and-publish` | Ruff、mypy、pytest、sdist・wheelのビルド、Schema差分、`examples/`の検証、基本サンプルの全形式生成 |
 | `browser-tests` | 基本サンプルのHTML生成、`npm ci`、生成HTMLを指定した`npm test` |
 
 生成物は`database-definition`というActions artifactに保存し、保存期間は30日です。このCIでは`definitions/`全体の検証は実行していないため、案件の定義を変更した際はローカルで`dbdef validate definitions`も実行してください。
@@ -119,7 +119,28 @@ Copilotの編集後フックは検証結果をコンテキストに返します�
 
 定義の作成・編集には[manage-db-definitions](../.agents/skills/manage-db-definitions/SKILL.md)を使います。Copilot向けには、[レビュー](../.github/skills/review-db-definitions/SKILL.md)、[成果物の生成](../.github/skills/publish-db-definitions/SKILL.md)、[ツールの変更](../.github/skills/evolve-dbdef-tooling/SKILL.md)のSkillもあります。共通の指示は[AGENTS.md](../AGENTS.md)と[Copilot指示](../.github/copilot-instructions.md)を参照してください。
 
-## バージョンに対応するタグでPyPIへ公開する
+## Gitタグでバージョンを決め、PyPIへ公開する
+
+バージョンの管理元はGitタグです。Hatchlingの`hatch-vcs`がビルド時にタグからパッケージのバージョンを決めます。`pyproject.toml`の`project.version`や`src/db_teigisho/__init__.py`の固定値を更新する作業はありません。
+
+CLI、HTMLのフッター、manifestの`generator.version`は、`importlib.metadata.version("db-teigisho")`を通じてインストール済みパッケージのバージョンを使います。利用者の環境にGitは不要です。
+
+| ソースの状態 | ビルドされるバージョン |
+| --- | --- |
+| `v0.3.1`のタグが付いた、変更のないコミット | `0.3.1` |
+| `v0.4.0rc1`のタグが付いた、変更のないコミット | `0.4.0rc1` |
+| タグ以降の開発コミットや未コミットの変更がある状態 | `0.3.1.dev3+g…`など、コミット数・ハッシュ等を含む開発版 |
+
+開発版のバージョンは、直近の到達可能なタグと作業ツリーの状態から自動計算されます。タグやコミットを切り替えても、すでにインストールしたパッケージのメタデータは変わりません。editableインストールでも、次のコマンドで更新してください。
+
+```bash
+.venv/bin/pip install -e '.[dev]'
+.venv/bin/dbdef --version
+```
+
+ソースからのビルドには、Git履歴とタグが必要です。浅いcloneを使っている場合は、先に`git fetch --unshallow --tags`で取得してください。このリポジトリのCIは`fetch-depth: 0`で履歴とタグを取得します。Git情報のない環境で再ビルドする場合は、`python -m build`が生成したsdist（`.tar.gz`）を使います。GitHubのソースZIPをsdistの代わりに使わないでください。
+
+### v0.3.1を公開する
 
 公開手順は[publish-python.yml](../.github/workflows/publish-python.yml)に定義しています。PyPI側のTrusted Publisherには、次の値を登録します。
 
@@ -130,22 +151,33 @@ Copilotの編集後フックは検証結果をコンテキストに返します�
 | Workflow | `publish-python.yml` |
 | Environment | `pypi` |
 
-`v`で始まるタグをpushすると、ワークフローが実行されます。公開へ進むには、タグから`v`を除いた値と`pyproject.toml`の`project.version`が一致する必要があります。現在の設定は`0.3.0`なので、対応するタグは次のとおりです。バージョンを変更した場合はタグも置き換えてください。
+上記の品質検査を通し、このバージョン管理の変更を含めたコミットを公開対象のブランチに反映します。作業ツリーに変更がないことを確認し、リリース対象のコミットにタグを付けてpushします。
 
 ```bash
-git tag v0.3.0
-git push origin v0.3.0
+git status --short
+git tag -a v0.3.1 -m "Release v0.3.1"
+git push origin v0.3.1
 ```
 
-公開準備では`src/db_teigisho/__init__.py`の`__version__`も確認してください。現在は`pyproject.toml`が`0.3.0`、`__version__`が`0.1.1`で一致していません。CLIの`--version`とmanifestは後者を使うため、公開前に両方をそろえる必要があります。
+タグのpushがPyPI公開の起点です。以降のリリースでも、上のコマンドのタグ名だけを変更します。公開済みのタグは付け替えず、修正時には新しいバージョンのタグを作成してください。
 
-インストール済みパッケージのメタデータと、CLIが使う値は次のコマンドで比較できます。バージョンを変更した後は、先に`.venv/bin/pip install -e '.[dev]'`でメタデータも更新してください。
+`v`で始まるタグをpushすると公開ワークフローが動き、`v0.3.1`のような`major.minor.patch`形式のバージョン、または`v0.4.0rc1`のような`a`・`b`・`rc`付きのプレリリースであることを確認します。
+
+公開前にはPythonの品質検査、Schemaとサンプルの検証、成果物の生成を行います。`python -m build`でsdistを作り、そのsdistからwheelをビルドするため、Git情報のない配布ソースでも再ビルドできることを確認します。通常のpush・Pull RequestのCIでも、この配布パッケージのビルドを実行します。
+
+公開CIではwheelを別の仮想環境にインストールし、次の値がタグから`v`を除いた値と一致することを検証します。
+
+- 配布パッケージのメタデータと`db_teigisho.__version__`
+- `dbdef --version`の表示
+- インストールしたCLIが生成するmanifestとHTMLのバージョン
+
+wheelでのサンプル検証とSchema差分検査、別ジョブのブラウザーテストも成功した後にPyPIへ公開します。
+
+ローカルでも、インストール済みパッケージのメタデータとCLIが使う値を確認できます。
 
 ```bash
 .venv/bin/python -c 'from importlib.metadata import version; from db_teigisho import __version__; print("package:", version("db-teigisho")); print("CLI / manifest:", __version__)'
 .venv/bin/dbdef --version
 ```
-
-公開前にPythonの品質検査、Schemaとサンプルの検証、成果物の生成を行います。続いて配布パッケージをビルドし、タグとインストール済みパッケージのバージョンの一致、wheelのインストールを確認します。このタグ検査は`__version__`との一致までは確認しません。ブラウザーテストも別ジョブで実行し、両方が成功した後にPyPIへ公開します。
 
 この説明はリポジトリ内のワークフローを示しています。PyPI側の登録状況や、特定バージョンの公開済み状態はリポジトリからは確認できません。

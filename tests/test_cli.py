@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+from importlib.metadata import version
 from pathlib import Path
+
+from db_teigisho import __version__
 
 
 def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
@@ -13,6 +16,15 @@ def _run_cli(*args: str) -> subprocess.CompletedProcess[str]:
         check=False,
         text=True,
     )
+
+
+def test_version_matches_installed_distribution() -> None:
+    result = _run_cli("--version")
+
+    assert result.returncode == 0
+    assert result.stderr == ""
+    assert result.stdout.strip() == f"dbdef {version('db-teigisho')}"
+    assert __version__ == version("db-teigisho")
 
 
 def test_validate_command_supports_machine_readable_output(definition_file: Path) -> None:

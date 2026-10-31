@@ -1,10 +1,10 @@
 [build-system]
-requires = ["hatchling>=1.33.0,<2"]
+requires = ["hatchling>=1.33.0,<2", "hatch-vcs>=0.5,<1"]
 build-backend = "hatchling.build"
 
 [project]
 name = "db-teigisho"
-version = "0.3.0"
+dynamic = ["version"]
 description = "YAML-first database definition validation and publishing"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,6 +50,10 @@ dev = [
 
 [project.scripts]
 dbdef = "db_teigisho.cli:main"
+
+[tool.hatch.version]
+source = "vcs"
+tag-pattern = '^v(?P<version>\d+\.\d+\.\d+(?:(?:a|b|rc)\d+)?)$'
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/db_teigisho"]
